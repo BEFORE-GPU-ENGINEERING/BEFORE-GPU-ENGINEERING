@@ -311,19 +311,45 @@ ol li::before {
 }
 
 @media (max-width: 1200px) {
+  .notebook-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
   .nav-sidebar {
     position: static;
-    display: inline-block;
-    width: auto;
-    margin-bottom: 20px;
+    width: 48%;
+    margin: 0 0 20px 0;
   }
-  .nav-prev { margin-right: 20px; text-align: left; }
-  .nav-next { margin-left: 20px; text-align: right; float: right; }
+  .nav-prev {
+    order: 1;
+    text-align: left;
+  }
+  .nav-next {
+    order: 2;
+    text-align: right;
+  }
+  .notebook-header {
+    order: 3;
+    width: 100%;
+  }
+  .notebook-box {
+    order: 4;
+    width: 100%;
+  }
 }
 
 @media (max-width: 600px) {
   body {
     padding: 20px 10px;
+  }
+
+  .nav-sidebar {
+    width: 100%;
+    margin-bottom: 12px;
+  }
+  .nav-prev, .nav-next {
+    text-align: center;
   }
 
   .notebook-grid-content {
