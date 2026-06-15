@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Architecture - Chapter 1: Why CPUs Can't Have 10,000 Cores</title>
+
+  <!-- Handwriting and casual fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,400;0,700;1,400&family=Patrick+Hand&family=Space+Mono&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="../style.css">
+  <script src="../script.js" defer></script>
+</head>
+
+<body>
+
+  <div class="notebook-wrapper">
+
+    <!-- Sidebar Navigation -->
+    <a href="chapter-2.html" class="nav-sidebar nav-next">Chapter 2: Matrix Multiplication →</a>
+
+    <!-- Notebook Header (Date and Days) -->
+    <div class="notebook-header">
+      <div class="date-row">
+        <span class="date-label">date</span>
+        <span class="date-value">15 / jun / 26</span>
+      </div>
+      <div class="days-row">
+        <span
+          class="active">m</span><span>t</span><span>w</span><span>t</span><span>f</span><span>s</span><span>s</span>
+      </div>
+    </div>
+
+    <!-- Notebook Bordered Box -->
+    <div class="notebook-box">
+
+      <div class="notebook-title-row">
+        THE ARCHITECTURE — Chapter 1
+      </div>
+
+      <div class="notebook-grid-content">
+
+        <!-- Title -->
+        <h1><span class="hl-yellow">Why CPUs Can't Have 10,000 Cores</span></h1>
+        <span class="annotation">*worked out from first principles*</span>
+
+
+
+        <!-- Introduction -->
+        <p>
+          I used to wonder why a CPU only packs 8 or 12 cores while a GPU easily fits thousands. They use the exact same
+          silicon and obey the same physics. So where does the massive gap come from? Well, it turns out chipmakers can
+          actually put 10,000 tiny compute units on a single chip. They already do it every day. <strong
+            class="hl-green">We just call that chip a GPU.</strong>
+        </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> The real question I needed to ask wasn't "Why can't a CPU have 10,000 cores?" It
+          was more like... <strong>"Why is a single CPU core so incredibly expensive to build that we can only squeeze a
+            few dozen onto a die?"</strong> To figure that out, I had to break it down from first principles.
+        </p>
+
+        <!-- Section 1 -->
+        <h2><span class="hl-blue">First, what is a chip actually made of?</span></h2>
+
+        <p>
+          Let's start at the very bottom. The core isn't the smallest unit. The transistor is. Think of a transistor as
+          a microscopic light switch:
+        </p>
+
+        <ul>
+          <li><span class="text-green bold">On means current flows, which the computer reads as a 1.</span></li>
+          <li><span class="text-red bold">Off means current stops, reading as a 0.</span></li>
+        </ul>
+
+        <p>
+          That is literally it. The whole machine only understands those 1s and 0s, and transistors are just the
+          physical things flipping between them.
+        </p>
+
+        <p>
+          One switch on its own is basically useless. But if you wire billions of them together, they start
+          communicating. One switch tells the next one, "hey, if I'm on, you turn off." This massive web of switches is
+          how a chip calculates math, renders video games, and makes decisions. They are so ridiculously tiny that you
+          could fit thousands of them across the width of a human hair.
+        </p>
+
+        <p>So the ladder looks like this:</p>
+
+        <ol>
+          <li><strong>Transistor = a single brick.</strong> Just an on/off switch.</li>
+          <li><strong>Core = a whole room.</strong> Billions of transistors wired together into a brain. Funny enough,
+            this brain mostly guesses things instead of doing actual math.</li>
+          <li><strong>CPU = the entire building.</strong> A few dozen of these rooms sitting under one roof.</li>
+        </ol>
+
+        <div class="callout-box">
+          <p><strong>The part that blew my mind:</strong></p>
+          <p>Take a modern Apple M-series chip. It packs roughly <strong>70 billion transistors</strong> into a square
+            smaller than your thumbnail. And all of that silicon builds maybe <strong>8 to 12 cores</strong>.</p>
+          <p>That is billions of switches for just one core. That ratio right there is the whole secret.</p>
+        </div>
+
+        <!-- Section 2 -->
+        <h2><span class="hl-pink">Why not shrink them and cram thousands onto the board?</span></h2>
+
+        <p>
+          It all comes down to what actually goes INSIDE a core to make it fast. This is where the big split happens. A
+          CPU is built for <strong class="hl-yellow">latency</strong>. It wants to finish one specific task as fast as
+          humanly possible. A GPU is built for <strong class="hl-green">throughput</strong>. It wants to finish
+          thousands of slower tasks all at the same time. Hold onto that idea because everything else makes sense once
+          you get that.
+        </p>
+
+        <ol>
+          <li>A CPU core's entire job is chaotic and unpredictable. One millisecond you are gaming, the next you open
+            Chrome, then a background app updates. The instructions change constantly. So the core has to be "smart",
+            and being smart costs a ton of physical silicon.</li>
+
+          <li>Most of that silicon is actually spent guessing instead of doing math. <strong>Branch prediction</strong>
+            tries to guess your next instruction before it even runs. <strong>Out-of-order execution</strong> scrambles
+            instructions on the fly to keep the core busy. These are massive guessing engines that take up physical
+            space to keep the math units fed.</li>
+
+          <li>Then you have <strong>cache</strong>. Standard RAM is way too slow to feed a fast core. So CPUs put huge
+            memory pools directly on the chip like L1, L2, and L3 cache. On a real CPU die, cache can take up more than
+            half the total chip area! The actual math units just sit in a tiny corner.</li>
+        </ol>
+
+        <p>
+          Because of all this, a CPU core is massive. Billions of transistors get eaten up by predictors and private
+          caches. You physically hit a ceiling at a few dozen cores.
+        </p>
+
+        <p>
+          A GPU core, on the other hand, is just a tiny, dumb math unit. No huge cache. No guessing hardware. If you
+          strip away all that "smart" stuff, <strong>a core shrinks by a factor of 100</strong>. That is exactly how you
+          fit thousands of them.
+        </p>
+
+        <!-- Section 3 -->
+        <h2><span class="hl-yellow">Latency vs Throughput</span></h2>
+
+        <p>The core concept underneath all of this architecture is Latency vs Throughput.</p>
+
+        <ul>
+          <li><strong>Latency (CPU)</strong> = time to finish one task from start to finish.</li>
+          <li><strong class="text-green">Throughput (GPU)</strong> = total work done over a window of time.</li>
+        </ul>
+
+        <p>
+          A CPU chases zero delay for a single heavy task. A GPU chases thousands of smaller tasks finishing together.
+          It is like comparing one insanely fast sports car dodging traffic versus <span class="text-red">a massive
+            fleet of slow cargo trucks.</span>
+        </p>
+
+        <!-- Section 4 -->
+        <h2><span class="hl-blue">So why not run Windows on a GPU?</span></h2>
+
+        <p>You might wonder why we don't just run an operating system on a GPU to make it crazy fast. Well, an OS is
+          exactly the type of workload a GPU is terrible at.</p>
+
+        <ul>
+          <li><strong>Endless branching:</strong> An OS is constantly making if/else decisions based on whatever the
+            user decides to click.</li>
+          <li><strong>Lockstep requirement:</strong> GPUs demand all their thousands of cores do the exact same step at
+            the exact same instant.</li>
+          <li><strong>Thread divergence:</strong> If those cores hit different branches in the code, they experience
+            divergence. They can't run together anymore and have to take turns. All that amazing parallel speed
+            collapses into a slow serial crawl.</li>
+          <li><strong>Hardware interrupts:</strong> An OS has to react instantly to random hardware events like a mouse
+            movement. CPUs handle those seamlessly. GPUs hate stopping their huge workflows for sudden interruptions.
+          </li>
+        </ul>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> The chaotic code that a CPU eats for breakfast is the exact thing that breaks a
+          GPU's lockstep model.
+        </p>
+
+        <!-- Conclusion -->
+        <div class="callout-box red-ink">
+          <h2 class="text-red">The General Takeaway</h2>
+
+          <p>
+            The core count on your laptop isn't a manufacturing limit. It is a very <strong>deliberate optimization
+              choice</strong>.
+          </p>
+
+          <p>
+            Every single feature that makes a CPU core snappy and responsive also makes it physically gigantic. You
+            could absolutely strip those features out to fit 10,000 cores on the board.
+          </p>
+
+          <p class="text-red bold" style="font-family: 'Patrick Hand', cursive; font-size: 24px; text-align: center;">
+            But the moment you do that, you stop building a CPU. <br>
+            <span class="hl-yellow">You just built a GPU.</span>
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</body>
+
+</html>
