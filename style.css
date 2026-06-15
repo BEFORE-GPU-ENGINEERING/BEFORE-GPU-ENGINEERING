@@ -282,6 +282,24 @@ ol li::before {
   margin-bottom: var(--grid-size);
 }
 
+/* Chapter Navigation */
+.chapter-nav {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--grid-size);
+  font-family: 'Patrick Hand', cursive;
+  font-size: 22px;
+}
+.chapter-nav a {
+  text-decoration: none;
+  color: var(--ink-blue);
+  font-weight: bold;
+}
+.chapter-nav a:hover {
+  text-decoration: underline;
+  color: var(--ink-red);
+}
+
 @media (max-width: 600px) {
   body {
     padding: 20px 10px;
