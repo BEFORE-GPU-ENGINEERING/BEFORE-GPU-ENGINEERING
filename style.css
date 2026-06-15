@@ -47,6 +47,7 @@ body {
 
 /* NOTEBOOK LAYOUT (Replicating the uploaded image) */
 .notebook-wrapper {
+  position: relative;
   width: 100%;
   max-width: 800px;
 }
@@ -282,22 +283,42 @@ ol li::before {
   margin-bottom: var(--grid-size);
 }
 
-/* Chapter Navigation */
-.chapter-nav {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: var(--grid-size);
+/* Sidebar Navigation */
+.nav-sidebar {
+  position: absolute;
+  top: 140px;
   font-family: 'Patrick Hand', cursive;
-  font-size: 22px;
-}
-.chapter-nav a {
+  font-size: 24px;
   text-decoration: none;
   color: var(--ink-blue);
   font-weight: bold;
+  width: 180px;
+  line-height: 1.2;
 }
-.chapter-nav a:hover {
+.nav-sidebar:hover {
   text-decoration: underline;
   color: var(--ink-red);
+}
+.nav-prev {
+  right: 100%;
+  margin-right: 40px;
+  text-align: right;
+}
+.nav-next {
+  left: 100%;
+  margin-left: 40px;
+  text-align: left;
+}
+
+@media (max-width: 1200px) {
+  .nav-sidebar {
+    position: static;
+    display: inline-block;
+    width: auto;
+    margin-bottom: 20px;
+  }
+  .nav-prev { margin-right: 20px; text-align: left; }
+  .nav-next { margin-left: 20px; text-align: right; float: right; }
 }
 
 @media (max-width: 600px) {
