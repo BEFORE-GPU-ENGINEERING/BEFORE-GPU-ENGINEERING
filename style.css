@@ -332,13 +332,15 @@ ol li::before {
 
 .phase-label {
   position: absolute;
-  right: -48px;
+  right: 0;
   top: 50%;
-  transform: translateY(-50%) rotate(-90deg);
-  transform-origin: center center;
+  transform: translate(50%, -50%);
   font-family: 'Patrick Hand', cursive;
   font-size: 22px;
   color: var(--ink-red);
+  background-color: var(--hl-yellow);
+  padding: 4px 10px;
+  border-radius: 4px;
   text-transform: lowercase;
   white-space: nowrap;
   letter-spacing: 1px;
@@ -450,8 +452,9 @@ ol li::before {
   }
 
   .phase-label {
-    right: -32px;
+    right: 0;
     font-size: 16px;
+    padding: 2px 6px;
   }
 }
 
