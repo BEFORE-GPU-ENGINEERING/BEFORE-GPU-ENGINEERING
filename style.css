@@ -319,6 +319,31 @@ ol li::before {
   line-height: var(--grid-size);
 }
 
+/* Phase Groupings on Index Page */
+.phase-container {
+  position: relative;
+  margin-left: 36px;
+}
+
+.phase-content {
+  border-left: 2px solid var(--ink-red);
+  padding-left: 24px;
+}
+
+.phase-label {
+  position: absolute;
+  left: -48px;
+  top: 50%;
+  transform: translateY(-50%) rotate(-90deg);
+  transform-origin: center center;
+  font-family: 'Patrick Hand', cursive;
+  font-size: 22px;
+  color: var(--ink-red);
+  text-transform: lowercase;
+  white-space: nowrap;
+  letter-spacing: 1px;
+}
+
 /* Sidebar Navigation */
 .nav-sidebar {
   position: absolute;
@@ -415,4 +440,18 @@ ol li::before {
   .handwritten-highlight {
     font-size: 20px;
   }
+
+  .phase-container {
+    margin-left: 22px;
+  }
+
+  .phase-content {
+    padding-left: 12px;
+  }
+
+  .phase-label {
+    left: -32px;
+    font-size: 16px;
+  }
 }
+
