@@ -70,7 +70,7 @@
           It's rows times columns, multiply and add. Take one row from the first matrix, line it up against one column from the second, multiply them pair by pair, add the results. That single number is one cell of the answer grid.
         </p>
 
-        <p class="text-blue bold" style="font-family: 'Patrick Hand', cursive; font-size: 26px; text-align: center; margin-bottom: var(--grid-size); line-height: calc(var(--grid-size) * 1.5);">
+        <p class="text-blue bold" style="font-family: 'Patrick Hand', cursive; font-size: 26px; text-align: center; margin-bottom: var(--grid-size); line-height: calc(var(--grid-size) * 2);">
           ↳ Answer[slot 1] = (A × X) + (B × Y) + (C × Z)
         </p>
 
@@ -120,7 +120,7 @@
           Every "smart" thing a CPU does — guessing your next instruction (branch prediction), reshuffling work to stay busy (out-of-order execution) — all of it lives inside this Control Unit manager.
         </p>
 
-        <p class="text-blue bold" style="font-family: 'Patrick Hand', cursive; font-size: 26px; text-align: center; margin-bottom: var(--grid-size); line-height: calc(var(--grid-size) * 1.5);">
+        <p class="text-blue bold" style="font-family: 'Patrick Hand', cursive; font-size: 26px; text-align: center; margin-bottom: var(--grid-size); line-height: calc(var(--grid-size) * 2);">
           ↳ Core = Manager (Control Unit) + Worker (ALU) + Pocket Memory (Registers)
         </p>
 
@@ -160,10 +160,10 @@
         </p>
 
         <div style="margin-bottom: var(--grid-size); text-align: center;">
-          <p class="text-blue bold" style="font-family: 'Patrick Hand', cursive; font-size: 26px; margin-bottom: 0;">
+          <p class="text-blue bold" style="font-family: 'Patrick Hand', cursive; font-size: 26px; margin-bottom: 0; line-height: var(--grid-size);">
             ↳ The full chain, bottom to top:
           </p>
-          <p class="hl-yellow" style="font-family: 'Space Mono', monospace; font-size: 15px; display: inline-block; padding: 2px 10px; margin-top: 5px; border-radius: 4px; letter-spacing: normal;">
+          <p class="hl-yellow" style="font-family: 'Space Mono', monospace; font-size: 15px; display: inline-block; padding: 0 10px; margin-top: 0; margin-bottom: 0; line-height: var(--grid-size); height: var(--grid-size); border-radius: 4px; letter-spacing: normal;">
             Independent math slots → one dumb ALU per slot → wide HBM highway → one command for the army
           </p>
         </div>
