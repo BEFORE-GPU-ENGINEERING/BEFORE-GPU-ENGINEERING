@@ -131,8 +131,10 @@
         </ol>
 
         <!-- Conclusion -->
-        <div class="callout-box red-ink">
-          <h2 class="text-red">The General Takeaway</h2>
+        <div style="margin-top: calc(var(--grid-size) * 2); margin-bottom: var(--grid-size); border-left: 3px solid var(--ink-red); padding-left: 20px;">
+          <h2 class="text-red" style="font-family: 'Patrick Hand', cursive; font-size: 32px; margin-bottom: var(--grid-size);">
+            ↳ The General Takeaway
+          </h2>
 
           <p>
             Don't count cores: read the dependencies. 
@@ -142,7 +144,7 @@
             If the pieces of the work are independent of each other, send it to a GPU and watch thousands of cores eat it alive, like matrix math. If each piece depends on the last, forget the core count entirely and put it on a single fast CPU core, like a linked list. 
           </p>
 
-          <p class="text-red bold" style="font-family: 'Patrick Hand', cursive; font-size: 24px; text-align: center;">
+          <p class="text-red bold" style="font-family: 'Patrick Hand', cursive; font-size: 26px; text-align: center; margin-top: var(--grid-size);">
             The core count was never the answer. <br>
             <span class="hl-yellow">The shape of the dependencies always was.</span>
           </p>
