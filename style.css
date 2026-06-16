@@ -322,17 +322,17 @@ ol li::before {
 /* Phase Groupings on Index Page */
 .phase-container {
   position: relative;
-  margin-left: 36px;
+  margin-right: 36px;
 }
 
 .phase-content {
-  border-left: 2px solid var(--ink-red);
-  padding-left: 24px;
+  border-right: 2px solid var(--ink-red);
+  padding-right: 24px;
 }
 
 .phase-label {
   position: absolute;
-  left: -48px;
+  right: -48px;
   top: 50%;
   transform: translateY(-50%) rotate(-90deg);
   transform-origin: center center;
@@ -442,15 +442,15 @@ ol li::before {
   }
 
   .phase-container {
-    margin-left: 22px;
+    margin-right: 22px;
   }
 
   .phase-content {
-    padding-left: 12px;
+    padding-right: 12px;
   }
 
   .phase-label {
-    left: -32px;
+    right: -32px;
     font-size: 16px;
   }
 }
