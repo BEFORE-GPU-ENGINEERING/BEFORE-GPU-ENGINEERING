@@ -337,7 +337,7 @@ ol li::before {
   content: "";
   position: absolute;
   right: -2px; /* Aligns with the 2px border */
-  width: 12px;
+  width: 20px;
   height: 2px;
   background-color: var(--ink-red);
 }
@@ -364,6 +364,7 @@ ol li::before {
   text-transform: lowercase;
   white-space: nowrap;
   letter-spacing: 1px;
+  z-index: 2;
 }
 
 /* Sidebar Navigation */
