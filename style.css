@@ -123,6 +123,25 @@ body {
   height: 40px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+}
+
+.index-link {
+  font-family: 'Space Mono', monospace;
+  color: var(--ink-navy);
+  text-decoration: none;
+  font-size: 13px;
+  border: 1px solid var(--ink-navy);
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: lowercase;
+  transition: background-color 0.2s, color 0.2s;
+  letter-spacing: normal;
+}
+
+.index-link:hover {
+  background-color: var(--ink-navy);
+  color: var(--paper-bg);
 }
 
 /* The Grid Area (Where the notes go) */
