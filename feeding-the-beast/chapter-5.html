@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Feeding the Beast - Chapter 5: Compute-bound vs memory-bound</title>
+  <title>Feeding the Beast - Chapter 5: Compute-bound vs. memory-bound</title>
 
   <!-- Handwriting and casual fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -47,13 +47,209 @@
       <div class="notebook-grid-content">
 
         <!-- Title -->
-        <h1><span class="hl-yellow">Compute-bound vs memory-bound</span></h1>
+        <h1><span class="hl-yellow">Compute-bound vs. memory-bound</span></h1>
         <span class="annotation">*worked out from first principles*</span>
 
         <!-- Introduction -->
         <p>
-          <em>Content coming soon...</em>
+          There is a question that decides whether buying a faster chip is worth the money or a <strong class="text-red bold">complete waste of it</strong>: <strong class="hl-yellow">will this expensive new hardware actually make my code faster?</strong>
         </p>
+
+        <p>
+          The answer is sometimes yes, and sometimes nothing changes at all. The <strong class="hl-green">roofline model</strong> is the visual picture that tells you which one it will be.
+        </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> To read it, you only need to look at two physical numbers about any chip: <strong class="text-blue">FLOPS</strong> and <strong class="text-red">bandwidth</strong>.
+        </p>
+
+        <!-- Section 1 -->
+        <h2><span class="hl-blue">The raw metrics: FLOPS and Bandwidth</span></h2>
+
+        <p>
+          First, let's establish the two players in this game:
+        </p>
+
+        <ul>
+          <li><strong class="text-blue">FLOPS (Floating Point Operations Per Second):</strong> <span class="hl-yellow">The math speed.</span> It means how much math all the compute units combined can finish in one second. Think of a factory with workers carving designs into bricks. FLOPS is their total carving speed. A chip might top out at, say, 100 operations a second. That is its hard physical ceiling. No matter how much data you pour in, the workers cannot push past 100.</li>
+          <li><strong class="text-red">Bandwidth:</strong> <span class="hl-pink">The supply speed.</span> The microscopic wires carrying data into the chip. It means how much data can arrive in one second. This is the width of the road feeding the factory.</li>
+        </ul>
+
+        <p>
+          A workload is held back by one of these two, never a third thing. The roofline graph draws this limit as a <strong class="hl-green">house</strong>, with a sloped wall on the left rising up into a flat roof on top. Where your code lands on that house is the whole story.
+        </p>
+
+        <!-- Hand-drawn Coded Diagram -->
+        <div style="margin: calc(var(--grid-size) * 1.5) 0; position: relative; width: 100%;">
+          <svg viewBox="0 0 600 320" width="100%" height="auto" style="display: block; font-family: 'Patrick Hand', cursive; overflow: visible;">
+            <defs>
+              <!-- Wobbly hand-drawn filter with userSpaceOnUse to prevent straight-line clipping -->
+              <filter id="handdrawn" filterUnits="userSpaceOnUse" x="0" y="0" width="600" height="320">
+                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.2" xChannelSelector="R" yChannelSelector="G" />
+              </filter>
+            </defs>
+            
+            <!-- Shaded Areas (Highlighter Regions) -->
+            <!-- Memory-bound Slope Region (Blue highlight) -->
+            <path d="M 90,240 L 270,100 L 270,240 Z" fill="var(--hl-blue)" opacity="0.45" filter="url(#handdrawn)" />
+            <!-- Compute-bound Flat Region (Pink highlight) -->
+            <path d="M 270,100 L 530,100 L 530,240 L 270,240 Z" fill="var(--hl-pink)" opacity="0.45" filter="url(#handdrawn)" />
+            
+            <!-- Grid Helpers (dotted lines showing the corner) -->
+            <line x1="270" y1="100" x2="270" y2="240" stroke="var(--ink-navy)" stroke-width="1" stroke-dasharray="4,3" opacity="0.4" filter="url(#handdrawn)" />
+            <line x1="90" y1="100" x2="270" y2="100" stroke="var(--ink-navy)" stroke-width="1" stroke-dasharray="4,3" opacity="0.4" filter="url(#handdrawn)" />
+
+            <!-- The Axes (Single continuous stroke for a organic sketch feel) -->
+            <path d="M 90,35 L 90,240 L 555,240" fill="none" stroke="var(--ink-navy)" stroke-width="2" stroke-linecap="round" filter="url(#handdrawn)" />
+            
+            <!-- Custom Arrowheads (Drawn as elements to avoid browser marker rendering bugs) -->
+            <!-- Y-Axis Arrowhead -->
+            <path d="M 86,45 L 90,32 L 94,45 Z" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+            <!-- X-Axis Arrowhead -->
+            <path d="M 547,236 L 560,240 L 547,244 Z" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+
+            <!-- The Roofline Curve (Sketched Double Line) -->
+            <!-- Layer 1 -->
+            <path d="M 90,240 L 270,100 L 530,100" fill="none" stroke="var(--ink-navy)" stroke-width="2.5" stroke-linecap="round" filter="url(#handdrawn)" />
+            <!-- Layer 2 (Slightly offset to look sketched) -->
+            <path d="M 91,239 L 271,101 L 529,101" fill="none" stroke="var(--ink-blue)" stroke-width="1.2" opacity="0.6" stroke-linecap="round" filter="url(#handdrawn)" />
+
+            <!-- Labels (No wobbly filter applied to text for 100% crisp readability) -->
+            <!-- Y-Axis Label -->
+            <text x="-135" y="45" transform="rotate(-90)" fill="var(--ink-navy)" font-size="16" font-weight="bold" text-anchor="middle" letter-spacing="0.5">Performance (FLOPS)</text>
+            <!-- X-Axis Label -->
+            <text x="325" y="275" fill="var(--ink-navy)" font-size="16" font-weight="bold" text-anchor="middle" letter-spacing="0.5">Math / Data Ratio (Intensity)</text>
+
+            <!-- Region Labels inside the shaded zones (no overlap, rotated parallel to slope in memory-bound) -->
+            <!-- Memory Bound Area -->
+            <text x="185" y="195" transform="rotate(-38 185 195)" fill="var(--ink-blue)" font-size="17" font-weight="bold" text-anchor="middle">Memory-Bound</text>
+            <text x="185" y="212" transform="rotate(-38 185 212)" fill="var(--ink-navy)" font-size="12" font-weight="bold" text-anchor="middle">(starving workers)</text>
+            
+            <!-- Compute Bound Area -->
+            <text x="400" y="165" fill="var(--ink-red)" font-size="18" font-weight="bold" text-anchor="middle">Compute-Bound</text>
+            <text x="400" y="185" fill="var(--ink-navy)" font-size="13" font-weight="bold" text-anchor="middle">(maxed out cores)</text>
+
+            <!-- Ceilings with Hand-drawn Arrows -->
+            <!-- Flat Roof -->
+            <text x="400" y="62" fill="var(--ink-navy)" font-size="15" font-weight="bold" text-anchor="middle">Flat Roof (FLOPS Ceiling)</text>
+            <!-- Arrow pointing straight down -->
+            <path d="M 400,70 L 400,90" fill="none" stroke="var(--ink-red)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <path d="M 396,86 L 400,94 L 404,86 Z" fill="var(--ink-red)" filter="url(#handdrawn)" />
+
+            <!-- Slope -->
+            <text x="190" y="62" fill="var(--ink-navy)" font-size="15" font-weight="bold" text-anchor="middle">Slope (Bandwidth Wall)</text>
+            <!-- Curved Arrow pointing to the slope -->
+            <path d="M 195,70 Q 215,85 205,130" fill="none" stroke="var(--ink-red)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <path d="M 201,124 L 205,134 L 209,124 Z" fill="var(--ink-red)" filter="url(#handdrawn)" />
+          </svg>
+          <span class="annotation" style="margin-top: 8px; display: block; font-size: 13px;">*slope = memory-bound (waiting for data), flat roof = compute-bound (maxed out)*</span>
+        </div>
+
+        <!-- Section 2 -->
+        <h2><span class="hl-pink">The Slope: Memory-Bound Territory</span></h2>
+
+        <p>
+          Start with the slope. This is where <strong class="hl-blue">memory-bound</strong> code lives.
+        </p>
+
+        <p>
+          Memory-bound means the <strong class="hl-blue">data is huge</strong> but the <strong class="hl-yellow">math on it is light</strong>. Picture a job that grabs a number, adds 1, and sends it back, repeating this across a mountain of data. The workers can carve <span class="text-blue bold">100 bricks a second</span>, but the thin road only delivers <span class="text-red bold">20 bricks a second</span>. So the workers finish those 20 instantly and then sit idle, because nothing more has arrived. They are nowhere near their 100 ceiling. The <strong class="text-red bold">road is choking them</strong>, not their own hands.
+        </p>
+
+        <p class="text-red">
+          <span class="arrow">↳</span> The punchline of the slope: you buy a new chip with double the FLOPS, so the workers can now carve 200 a second. What changed? Nothing. The road is still delivering 20 bricks a second. The workers just sit idle twice as fast. <strong class="hl-pink">Zero speedup.</strong>
+        </p>
+
+        <p>
+          On the slope, more math power is <strong class="text-red">money set on fire</strong>, because math was never the problem.
+        </p>
+
+        <!-- Section 3 -->
+        <h2><span class="hl-yellow">The Flat Roof: Compute-Bound Territory</span></h2>
+
+        <p>
+          Now look at the flat roof. This is where <strong class="hl-pink">compute-bound</strong> code lives.
+        </p>
+
+        <p>
+          Compute-bound means the <strong class="hl-pink">data is small</strong> but the <strong class="hl-yellow">math is brutal</strong>. Picture one tiny brick that needs <span class="text-red bold">500 separate carvings</span>. Here, the road is wide enough to deliver <span class="text-blue bold">1000 bricks a second</span>, far more than needed, so there is no traffic jam at all. Data is sitting there ready and waiting.
+        </p>
+
+        <p>
+          The workers are running flat out at their full 100 operations a second and cannot go faster. They have <strong class="hl-pink">hit the ceiling</strong>, the flat roof of the graph. It is their own hand speed stopping them now, not the road.
+        </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> And the punchline of the roof is the opposite: you buy a chip with double the FLOPS, workers go from 100 to 200, and because the data was already sitting there ready, the whole program runs <span class="text-green bold">genuinely 2x faster</span>. Here, the money was <strong class="hl-green">well spent</strong>, because math was the actual bottleneck.
+        </p>
+
+        <p>
+          So the same hardware upgrade is either completely useless or transformative, and which one depends entirely on where your code sat on the house before you bought anything.
+        </p>
+
+        <!-- Section 4 -->
+        <h2><span class="hl-blue">The Trap: Shifting Bottlenecks</span></h2>
+
+        <p>
+          Now the deepest twist, the one that traps people. You assume your code will always stay on the roof, so faster math always pays off.
+        </p>
+
+        <p>
+          But here is what actually happens: when you buy a chip with more FLOPS, the <strong class="hl-pink">roof itself rises higher</strong>. The workers got faster, but the wires carrying data are bound by <span class="text-red bold">physics that did not improve</span>. A program that was compute-bound on the old chip can suddenly become <strong class="hl-blue">memory-bound</strong> on the new one.
+        </p>
+
+        <p class="text-red">
+          <span class="arrow">↳</span> The workers raced ahead and left the road behind. You paid for more carving speed and walked straight into a <span class="text-red bold">delivery jam</span> you didn't have before.
+        </p>
+
+        <p>
+          That is why raising a chip's math power without thinking about its bandwidth can be the biggest waste of money there is. A chip running at <span class="text-red bold">20 percent utilization</span> isn't a chip that is lazy. It is a chip whose workers are standing around <strong class="hl-yellow">waiting for a jammed road to clear</strong>.
+        </p>
+
+        <!-- Section 5 -->
+        <h2><span class="hl-pink">Core vs. FLOPS</span></h2>
+
+        <p>
+          One thing is worth separating cleanly here, because they easily blur together: <strong class="hl-green">a core and FLOPS are not the same</strong>.
+        </p>
+
+        <p>
+          A core is the <strong class="text-blue">physical worker</strong>, an actual unit etched into the silicon that you could point to. FLOPS is the <strong class="text-red">speed score</strong>, how much math all those workers manage per second. You can raise FLOPS two ways: by adding more workers or by making each worker faster. The worker is the physical object, and FLOPS is its performance.
+        </p>
+
+        <p>
+          When code hits the flat roof, it means every core is running its hands at full speed and there is simply no faster gear left.
+        </p>
+
+        <div style="margin-bottom: var(--grid-size); text-align: center;">
+          <p class="handwritten-highlight text-blue" style="margin-bottom: 0; text-align: center;">
+            ↳ Core = the worker. FLOPS = the carving speed.
+          </p>
+          <p class="hl-yellow" style="font-family: 'Space Mono', monospace; font-size: 15px; display: inline-block; padding: 0 10px; margin-top: 0; margin-bottom: 0; line-height: var(--grid-size); height: var(--grid-size); border-radius: 4px; letter-spacing: normal;">
+            Upgrade compute on the roof, upgrade bandwidth on the slope.
+          </p>
+        </div>
+
+        <!-- Takeaway -->
+        <div style="margin-top: calc(var(--grid-size) * 2); margin-bottom: var(--grid-size); border-left: 3px solid var(--ink-red); padding-left: 20px;">
+          <h2 class="text-red" style="font-family: 'Patrick Hand', cursive; font-size: 32px; margin-bottom: var(--grid-size);">
+            ↳ The General Takeaway
+          </h2>
+
+          <p>
+            The whole model collapses to one habit. Before you spend a single rupee on faster hardware, find out where your code is standing.
+          </p>
+
+          <p>
+            Stuck on the slope means the road is too thin and you need bandwidth. Pressed against the roof means the workers are maxed and you need compute.
+          </p>
+
+          <p class="handwritten-highlight text-red" style="text-align: center; margin-top: var(--grid-size);">
+            Diagnose the bottleneck first, then buy the cure... <br>
+            <span class="hl-yellow" style="font-family: inherit; font-size: inherit;">buying the wrong cure changes nothing except your bank balance.</span>
+          </p>
+        </div>
 
       </div>
     </div>
