@@ -116,9 +116,9 @@
 
         <!-- Hand-drawn Amdahl's Law Timeline Diagram -->
         <div style="margin: calc(var(--grid-size) * 1.5) 0; position: relative; width: 100%;">
-          <svg viewBox="0 0 600 220" width="100%" height="auto" style="display: block; font-family: 'Patrick Hand', cursive; overflow: visible;">
+          <svg viewBox="0 0 600 270" width="100%" height="auto" style="display: block; font-family: 'Patrick Hand', cursive; overflow: visible;">
             <defs>
-              <filter id="handdrawn" filterUnits="userSpaceOnUse" x="0" y="0" width="600" height="220">
+              <filter id="handdrawn" filterUnits="userSpaceOnUse" x="0" y="0" width="600" height="270">
                 <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise" />
                 <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.2" xChannelSelector="R" yChannelSelector="G" />
               </filter>
@@ -126,46 +126,46 @@
             
             <!-- Timeline 1: Single Core (Serial) -->
             <!-- Box Outline (Sketched Double Path) -->
-            <path d="M 120,50 L 520,50 L 520,80 L 120,80 Z" fill="none" stroke="var(--ink-navy)" stroke-width="2.5" stroke-linecap="round" filter="url(#handdrawn)" />
-            <path d="M 121,49 L 519,49 L 519,79 L 121,79 Z" fill="none" stroke="var(--ink-blue)" stroke-width="1.2" opacity="0.5" stroke-linecap="round" filter="url(#handdrawn)" />
+            <path d="M 120,45 L 520,45 L 520,75 L 120,75 Z" fill="none" stroke="var(--ink-navy)" stroke-width="2.5" stroke-linecap="round" filter="url(#handdrawn)" />
+            <path d="M 121,44 L 519,44 L 519,74 L 121,74 Z" fill="none" stroke="var(--ink-blue)" stroke-width="1.2" opacity="0.5" stroke-linecap="round" filter="url(#handdrawn)" />
             
             <!-- Highlights inside Timeline 1 -->
             <!-- Serial Part (30% = 120px) -->
-            <path d="M 120,50 L 240,50 L 240,80 L 120,80 Z" fill="var(--hl-pink)" opacity="0.45" filter="url(#handdrawn)" />
+            <path d="M 120,45 L 240,45 L 240,75 L 120,75 Z" fill="var(--hl-pink)" opacity="0.45" filter="url(#handdrawn)" />
             <!-- Parallelizable Part (70% = 280px) -->
-            <path d="M 240,50 L 520,50 L 520,80 L 240,80 Z" fill="var(--hl-blue)" opacity="0.45" filter="url(#handdrawn)" />
+            <path d="M 240,45 L 520,45 L 520,75 L 240,75 Z" fill="var(--hl-blue)" opacity="0.45" filter="url(#handdrawn)" />
             
             <!-- Timeline 2: Multi-Core / GPU -->
             <!-- Box Outline (Sketched Double Path) -->
-            <path d="M 120,130 L 260,130 L 260,160 L 120,160 Z" fill="none" stroke="var(--ink-navy)" stroke-width="2.5" stroke-linecap="round" filter="url(#handdrawn)" />
-            <path d="M 121,129 L 259,129 L 259,159 L 121,159 Z" fill="none" stroke="var(--ink-blue)" stroke-width="1.2" opacity="0.5" stroke-linecap="round" filter="url(#handdrawn)" />
+            <path d="M 120,140 L 260,140 L 260,170 L 120,170 Z" fill="none" stroke="var(--ink-navy)" stroke-width="2.5" stroke-linecap="round" filter="url(#handdrawn)" />
+            <path d="M 121,139 L 259,139 L 259,169 L 121,169 Z" fill="none" stroke="var(--ink-blue)" stroke-width="1.2" opacity="0.5" stroke-linecap="round" filter="url(#handdrawn)" />
             
             <!-- Highlights inside Timeline 2 -->
             <!-- Serial Part (Unchanged at 120px) -->
-            <path d="M 120,130 L 240,130 L 240,160 L 120,160 Z" fill="var(--hl-pink)" opacity="0.45" filter="url(#handdrawn)" />
+            <path d="M 120,140 L 240,140 L 240,170 L 120,170 Z" fill="var(--hl-pink)" opacity="0.45" filter="url(#handdrawn)" />
             <!-- Parallel Part (Shrunk to 20px) -->
-            <path d="M 240,130 L 260,130 L 260,160 L 240,160 Z" fill="var(--hl-blue)" opacity="0.45" filter="url(#handdrawn)" />
+            <path d="M 240,140 L 260,140 L 260,170 L 240,170 Z" fill="var(--hl-blue)" opacity="0.45" filter="url(#handdrawn)" />
             
             <!-- Vertical Alignment/Boundary Line -->
-            <line x1="240" y1="40" x2="240" y2="170" stroke="var(--ink-navy)" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.4" filter="url(#handdrawn)" />
+            <line x1="240" y1="35" x2="240" y2="180" stroke="var(--ink-navy)" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.4" filter="url(#handdrawn)" />
             
-            <!-- Tiny Sketchy Arrow pointing to Parallel Shrunk piece -->
-            <path d="M 275,120 Q 255,120 252,127" fill="none" stroke="var(--ink-blue)" stroke-width="1" filter="url(#handdrawn)" />
-            <path d="M 248,124 L 250,131 L 255,126 Z" fill="var(--ink-blue)" filter="url(#handdrawn)" />
+            <!-- Horizontal Arrow pointing left from "shrunk!" label into the blue segment -->
+            <path d="M 273,155 L 264,155" fill="none" stroke="var(--ink-blue)" stroke-width="1.2" filter="url(#handdrawn)" />
+            <path d="M 266,152 L 261,155 L 266,158 Z" fill="var(--ink-blue)" filter="url(#handdrawn)" />
             
             <!-- Labels (crisp, no filter) -->
-            <text x="120" y="42" fill="var(--ink-navy)" font-size="14" font-weight="bold">Single Core (Serial Execution)</text>
-            <text x="180" y="69" fill="var(--ink-black)" font-size="11" font-weight="bold" text-anchor="middle">Serial (30%)</text>
-            <text x="380" y="69" fill="var(--ink-black)" font-size="12" font-weight="bold" text-anchor="middle">Parallelizable Part (70%)</text>
+            <text x="120" y="35" fill="var(--ink-navy)" font-size="14" font-weight="bold">Single Core (Serial Execution)</text>
+            <text x="180" y="64" fill="var(--ink-black)" font-size="11" font-weight="bold" text-anchor="middle">Serial (30%)</text>
+            <text x="380" y="64" fill="var(--ink-black)" font-size="12" font-weight="bold" text-anchor="middle">Parallelizable Part (70%)</text>
             
-            <text x="120" y="122" fill="var(--ink-navy)" font-size="14" font-weight="bold">Multi-Core / GPU (Parallelized)</text>
-            <text x="180" y="149" fill="var(--ink-black)" font-size="11" font-weight="bold" text-anchor="middle">Serial Part (unchanged)</text>
-            <text x="280" y="118" fill="var(--ink-blue)" font-size="10" font-weight="bold">shrunk!</text>
+            <text x="120" y="130" fill="var(--ink-navy)" font-size="14" font-weight="bold">Multi-Core / GPU (Parallelized)</text>
+            <text x="180" y="159" fill="var(--ink-black)" font-size="11" font-weight="bold" text-anchor="middle">Serial Part (unchanged)</text>
+            <text x="278" y="159" fill="var(--ink-blue)" font-size="12" font-weight="bold">shrunk!</text>
             
             <!-- Amdahl's Law Explanatory Caption -->
-            <text x="300" y="195" fill="var(--ink-red)" font-size="14" font-weight="bold" text-anchor="middle">Amdahl's Law: The serial portion (pink) limits the maximum possible speedup.</text>
+            <text x="300" y="215" fill="var(--ink-red)" font-size="14" font-weight="bold" text-anchor="middle">Amdahl's Law: The serial portion (pink) limits the maximum possible speedup.</text>
+            <text x="300" y="238" fill="var(--ink-red)" font-size="12" text-anchor="middle" font-style="italic">*no matter how many cores are added, the serial part (30% time) cannot be split, setting a hard ceiling.*</text>
           </svg>
-          <span class="annotation" style="margin-top: 8px; display: block; font-size: 13px;">*no matter how many cores are added, the serial part (30% time) cannot be split, setting a hard ceiling on speed.*</span>
         </div>
 
         <!-- Section 2 -->
