@@ -52,8 +52,201 @@
 
         <!-- Introduction -->
         <p>
-          <em>Content coming soon...</em>
+          A GPU has thousands, sometimes hundreds of thousands, of tiny workers. That raises a question that sounds simple but breaks the whole design if you get it wrong: <strong class="hl-yellow">who tells all of them what to do?</strong> If a manager had to walk up to each worker one at a time and hand out a separate task, the managing alone would take all day and the actual work would never start. So the GPU pulls a trick, and that trick is called the <strong class="hl-blue">warp</strong>.
         </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> Start with what a warp actually is. It is a <strong class="hl-green">fixed group of 32 threads</strong> that always wake up together, move together, and do the exact same thing together. One bundle, 32 workers, locked as a unit.
+        </p>
+
+        <!-- Section 1 -->
+        <h2><span class="hl-pink">The kitchen analogy: 3200 cooks</span></h2>
+        
+        <p>
+          Here is why that bundling matters. Picture a kitchen with 3200 cooks. If the head cook walks to each one individually saying "you roll dough", "you fry", "you knead", the morning is gone before a single dish is made.
+        </p>
+        
+        <p>
+          So instead, the kitchen forms teams of 32. Now the head cook manages around <span class="hl-yellow">100 teams</span> instead of 3200 people. The management problem just shrank by a factor of 32, and it did not cost any actual cooking speed.
+        </p>
+
+        <!-- Section 2 -->
+        <h2><span class="hl-blue">SIMT: One conductor, 32 players</span></h2>
+
+        <p>
+          Now the rule every warp runs on: <strong>one order, everyone obeys.</strong>
+        </p>
+
+        <p>
+          The scheduler walks up to a whole team of 32 and gives a single command, say: <em>"add 5 to the number in front of you."</em> All 32 workers do that same operation at the same instant, each on their own piece of data. The instruction is one, the data is 32 different values.
+        </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> This is <strong class="hl-green">SIMT (Single Instruction, Multiple Threads)</strong>, and it is the heartbeat of the whole chip. Think of an orchestra where the conductor raises one hand and all 32 players strike the same note together, each on their own instrument.
+        </p>
+
+        <!-- Hand-drawn Warp Scheduling Diagram -->
+        <div style="margin: calc(var(--grid-size) * 1.5) 0; position: relative; width: 100%;">
+          <svg viewBox="0 0 600 250" width="100%" height="auto" style="display: block; font-family: 'Patrick Hand', cursive; overflow: visible;">
+            <defs>
+              <filter id="handdrawn" filterUnits="userSpaceOnUse" x="0" y="0" width="600" height="250">
+                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.2" xChannelSelector="R" yChannelSelector="G" />
+              </filter>
+            </defs>
+            
+            <!-- Left Side: Independent Control (Control Tax) -->
+            <!-- Box Outline (Sketched Double Path) -->
+            <path d="M 40,35 L 255,35 L 255,215 L 40,215 Z" fill="none" stroke="var(--ink-navy)" stroke-width="2" stroke-linecap="round" filter="url(#handdrawn)" />
+            <path d="M 41,34 L 254,34 L 254,214 L 41,214 Z" fill="none" stroke="var(--ink-blue)" stroke-width="1" opacity="0.4" stroke-linecap="round" filter="url(#handdrawn)" />
+            
+            <!-- Core 1 -->
+            <rect x="50" y="50" width="55" height="30" fill="var(--hl-yellow)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <rect x="130" y="50" width="35" height="30" fill="var(--hl-pink)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <path d="M 105,65 L 124,65" fill="none" stroke="var(--ink-navy)" stroke-width="1.2" filter="url(#handdrawn)" />
+            <path d="M 120,62 L 126,65 L 120,68 Z" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+            
+            <!-- Core 2 -->
+            <rect x="50" y="100" width="55" height="30" fill="var(--hl-yellow)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <rect x="130" y="100" width="35" height="30" fill="var(--hl-pink)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <path d="M 105,115 L 124,115" fill="none" stroke="var(--ink-navy)" stroke-width="1.2" filter="url(#handdrawn)" />
+            <path d="M 120,112 L 126,115 L 120,118 Z" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+            
+            <!-- Core 3 -->
+            <rect x="50" y="150" width="55" height="30" fill="var(--hl-yellow)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <rect x="130" y="150" width="35" height="30" fill="var(--hl-pink)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <path d="M 105,165 L 124,165" fill="none" stroke="var(--ink-navy)" stroke-width="1.2" filter="url(#handdrawn)" />
+            <path d="M 120,162 L 126,165 L 120,168 Z" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+            
+            <!-- Right Side: Warp Control (SIMT) -->
+            <!-- Box Outline (Sketched Double Path) -->
+            <path d="M 295,35 L 560,35 L 560,215 L 295,215 Z" fill="none" stroke="var(--ink-navy)" stroke-width="2" stroke-linecap="round" filter="url(#handdrawn)" />
+            <path d="M 296,34 L 559,34 L 559,214 L 296,214 Z" fill="none" stroke="var(--ink-blue)" stroke-width="1" opacity="0.4" stroke-linecap="round" filter="url(#handdrawn)" />
+            
+            <!-- Shared Control Box -->
+            <rect x="370" y="50" width="110" height="30" fill="var(--hl-yellow)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            
+            <!-- Shared Distribution Bus -->
+            <path d="M 425,80 L 425,105" fill="none" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <path d="M 330,105 L 526,105" fill="none" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            
+            <!-- ALUs -->
+            <rect x="320" y="130" width="20" height="20" fill="var(--hl-pink)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.2" filter="url(#handdrawn)" />
+            <rect x="348" y="130" width="20" height="20" fill="var(--hl-pink)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.2" filter="url(#handdrawn)" />
+            <rect x="376" y="130" width="20" height="20" fill="var(--hl-pink)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.2" filter="url(#handdrawn)" />
+            <rect x="404" y="130" width="20" height="20" fill="var(--hl-pink)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.2" filter="url(#handdrawn)" />
+            <rect x="432" y="130" width="20" height="20" fill="var(--hl-pink)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.2" filter="url(#handdrawn)" />
+            <rect x="460" y="130" width="20" height="20" fill="var(--hl-pink)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.2" filter="url(#handdrawn)" />
+            <rect x="488" y="130" width="20" height="20" fill="var(--hl-pink)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.2" filter="url(#handdrawn)" />
+            <rect x="516" y="130" width="20" height="20" fill="var(--hl-pink)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.2" filter="url(#handdrawn)" />
+            
+            <!-- Vertical Tap Lines with Arrows -->
+            <path d="M 330,105 L 330,124" fill="none" stroke="var(--ink-navy)" stroke-width="1" filter="url(#handdrawn)" />
+            <path d="M 328,120 L 330,126 L 332,120 Z" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+            
+            <path d="M 358,105 L 358,124" fill="none" stroke="var(--ink-navy)" stroke-width="1" filter="url(#handdrawn)" />
+            <path d="M 356,120 L 358,126 L 360,120 Z" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+            
+            <path d="M 386,105 L 386,124" fill="none" stroke="var(--ink-navy)" stroke-width="1" filter="url(#handdrawn)" />
+            <path d="M 384,120 L 386,126 L 388,120 Z" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+            
+            <path d="M 414,105 L 414,124" fill="none" stroke="var(--ink-navy)" stroke-width="1" filter="url(#handdrawn)" />
+            <path d="M 412,120 L 414,126 L 416,120 Z" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+            
+            <path d="M 442,105 L 442,124" fill="none" stroke="var(--ink-navy)" stroke-width="1" filter="url(#handdrawn)" />
+            <path d="M 440,120 L 442,126 L 444,120 Z" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+            
+            <path d="M 470,105 L 470,124" fill="none" stroke="var(--ink-navy)" stroke-width="1" filter="url(#handdrawn)" />
+            <path d="M 468,120 L 470,126 L 472,120 Z" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+            
+            <path d="M 498,105 L 498,124" fill="none" stroke="var(--ink-navy)" stroke-width="1" filter="url(#handdrawn)" />
+            <path d="M 496,120 L 498,126 L 500,120 Z" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+            
+            <path d="M 526,105 L 526,124" fill="none" stroke="var(--ink-navy)" stroke-width="1" filter="url(#handdrawn)" />
+            <path d="M 524,120 L 526,126 L 528,120 Z" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+            
+            <!-- Labels (crisp, no filter) -->
+            <text x="147.5" y="25" fill="var(--ink-navy)" font-size="15" font-weight="bold" text-anchor="middle">INDEPENDENT CONTROL</text>
+            <text x="77.5" y="69" fill="var(--ink-black)" font-size="12" text-anchor="middle">Ctrl</text>
+            <text x="147.5" y="69" fill="var(--ink-black)" font-size="11" text-anchor="middle">ALU</text>
+            <text x="77.5" y="119" fill="var(--ink-black)" font-size="12" text-anchor="middle">Ctrl</text>
+            <text x="147.5" y="119" fill="var(--ink-black)" font-size="11" text-anchor="middle">ALU</text>
+            <text x="77.5" y="169" fill="var(--ink-black)" font-size="12" text-anchor="middle">Ctrl</text>
+            <text x="147.5" y="169" fill="var(--ink-black)" font-size="11" text-anchor="middle">ALU</text>
+            
+            <text x="147.5" y="196" fill="var(--ink-navy)" font-size="11" font-style="italic" text-anchor="middle">3 distinct instruction streams</text>
+            <text x="147.5" y="208" fill="var(--ink-red)" font-size="11" font-weight="bold" text-anchor="middle">Huge silicon overhead (Control Tax)</text>
+            
+            <text x="427.5" y="25" fill="var(--ink-navy)" font-size="15" font-weight="bold" text-anchor="middle">WARP CONTROL (SIMT)</text>
+            <text x="425" y="69" fill="var(--ink-black)" font-size="13" font-weight="bold" text-anchor="middle">Shared Control</text>
+            <text x="427.5" y="170" fill="var(--ink-navy)" font-size="11" font-style="italic" text-anchor="middle">ALU Array (32 dumb workers in lockstep)</text>
+            <text x="427.5" y="202" fill="var(--ink-green)" font-size="12" font-weight="bold" text-anchor="middle">Saves silicon: 32x fewer managers</text>
+          </svg>
+          <span class="annotation" style="margin-top: 8px; display: block; font-size: 13px;">*left: cpu-style independent execution where control logic dominates the area. right: gpu warp style sharing one controller.*</span>
+        </div>
+
+        <!-- Section 3 -->
+        <h2><span class="hl-yellow">Why not let threads run free?</span></h2>
+
+        <p>
+          Now the real question underneath all of this: <strong>why bundle at all?</strong> Why not just give every single thread its own manager and let it run free? It feels more flexible, so why is it actually a disaster? There are real physical reasons, and they are worth seeing one by one.
+        </p>
+        
+        <p>
+          To run even one thread independently, the chip needs a little machinery around it:
+        </p>
+
+        <ul>
+          <li>A <strong class="text-blue">fetcher and decoder</strong> that figures out the next instruction and translates it into something the worker understands (like a supervisor reading the menu and telling the cooks whether to roll or to fry).</li>
+          <li>A <strong class="text-red">dependency tracker</strong> that makes sure a worker does not start before the data it needs is ready (like a checker making sure nobody starts rolling a dough ball that has not been made yet).</li>
+        </ul>
+
+        <p>
+          That is a fair amount of equipment for a single worker. Now give every single thread its own copy of all that, and three things break:
+        </p>
+
+        <ol>
+          <li><strong class="text-red">The control tax:</strong> Put a separate supervisor and a separate checker on top of every cook, and a kitchen of 3200 cooks now also has 3200 supervisors and 3200 checkers. The cost and the paperwork of managing that crowd becomes impossible. The scheduler simply melts under its own bookkeeping.</li>
+          <li><strong class="text-red">The math space runs out:</strong> A chip is a fixed size. If most of that space gets eaten by supervisors and checkers, there is no room left for the workers and their stations. And the workers are the whole point. Fewer workers means less math gets done, so the chip you built to be fast ends up slow. This is exactly why a GPU spends most of its silicon on workers and very little on managers.</li>
+          <li><strong class="text-red">The complexity bomb:</strong> If 3200 supervisors are all shouting different orders at once, the wiring needed to carry all those separate instructions across the chip becomes a tangle that physics will not allow you to build on silicon. One instruction shared by 32 is a clean wire. Thousands of independent instructions is chaos.</li>
+        </ol>
+
+        <p>
+          So the GPU's answer to all three is the <strong class="hl-blue">warp</strong>. One supervisor, one checker, 32 workers underneath. The management cost drops by 32x, the saved space gets filled with more actual workers, and the wiring stays simple because there is one order flowing to the whole group. The chip stays mostly math and barely any management, which is the entire reason it can grind through millions of operations without stalling.
+        </p>
+
+        <p>
+          This is not abstract. When you bump up the brightness on a photo, that photo has millions of pixels and every pixel needs the same tiny operation: push it brighter. So a warp of 32 cores grabs 32 pixels and brightens them in one shot. The next warp grabs the next 32. Because the job is identical across every pixel, the warps tear through the whole image in a millisecond. That uniformity is exactly the shape warps are built for.
+        </p>
+
+        <!-- Section 4 -->
+        <h2><span class="hl-green">Why specifically 32?</span></h2>
+        
+        <p>
+          One last thing people always ask: why specifically 32? It is not random, and the reasons are clean:
+        </p>
+
+        <ul>
+          <li><strong>Computers think in powers of two:</strong> Everything at the hardware level runs on the binary ladder: 2, 4, 8, 16, 32, 64. Routing data and doing math is simplest when the group size sits on that ladder. Pick an odd size like 30 or 35 and the hardware wastes effort wrestling it into a shape it can handle.</li>
+          <li><strong>32 is a balance point:</strong> Go too small (like teams of 4) and you need far more teams, which means more supervisors, bringing the control tax right back. Go too big (like teams of 256) and forcing that many workers to do the exact same step becomes fragile, because the moment some of them need to go a different way, the rest have to stop and wait. So 32 sits in the sweet spot where management stays cheap and the group stays nimble enough to actually move together.</li>
+          <li><strong>It lines up with data wires:</strong> The paths that carry data into the cores are built on the same binary design, so when the hardware fires one pulse it can comfortably feed a full 32 threads at once, each getting its own lane with no traffic jam.</li>
+        </ul>
+
+        <!-- Conclusion -->
+        <div style="margin-top: calc(var(--grid-size) * 2); margin-bottom: var(--grid-size); border-left: 3px solid var(--ink-red); padding-left: 20px;">
+          <h2 class="text-red" style="font-family: 'Patrick Hand', cursive; font-size: 32px; margin-bottom: var(--grid-size);">
+            ↳ The General Takeaway
+          </h2>
+
+          <p>
+            A GPU cannot afford to manage workers individually, the bookkeeping alone would sink it. So it ties them into <strong class="hl-yellow">bundles of 32</strong>, gives each bundle a single order, and lets all 32 move in lockstep.
+          </p>
+
+          <p class="handwritten-highlight text-red" style="text-align: center; margin-top: var(--grid-size);">
+            That one decision is what frees up the silicon for actual math... <br>
+            <span class="hl-yellow" style="font-family: inherit; font-size: inherit;">letting a GPU do millions of things at once without the manager breaking a sweat.</span>
+          </p>
+        </div>
 
       </div>
     </div>
