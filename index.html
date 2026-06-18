@@ -204,6 +204,44 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (window.Babel && typeof window.Babel.transformScriptTags === 'function') {
       window.Babel.transformScriptTags();
     }
+
+    // Post-render mobile responsiveness fix — DOM manipulation is more
+    // reliable than CSS attribute selectors on inline styles.
+    (function applyMobileFixes() {
+      function fixLayout() {
+        var isMobile = window.innerWidth <= 768;
+        // Find all elements with inline grid-template-columns
+        document.querySelectorAll('*').forEach(function(el) {
+          var s = el.getAttribute('style') || '';
+          // About + Now section (1.4fr 1fr grid)
+          if (s.indexOf('1.4fr') !== -1 && s.indexOf('grid') !== -1) {
+            if (isMobile) {
+              el.style.display = 'flex';
+              el.style.flexDirection = 'column';
+              el.style.gap = '20px';
+            } else {
+              el.style.display = '';
+              el.style.flexDirection = '';
+              el.style.gap = '';
+            }
+          }
+          // Skills label + chips rows (120px 1fr grid)
+          if (s.indexOf('120px') !== -1 && s.indexOf('grid') !== -1) {
+            if (isMobile) {
+              el.style.display = 'flex';
+              el.style.flexDirection = 'column';
+              el.style.gap = '10px';
+            } else {
+              el.style.display = '';
+              el.style.flexDirection = '';
+              el.style.gap = '';
+            }
+          }
+        });
+      }
+      fixLayout();
+      window.addEventListener('resize', fixLayout);
+    })();
   } catch (err) {
     setStatus('Error unpacking: ' + err.message);
     console.error('Bundle unpack error:', err);
