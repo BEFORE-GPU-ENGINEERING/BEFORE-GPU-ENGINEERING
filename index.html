@@ -122,12 +122,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Responsive CSS to fix mobile layout — matched to chapter page sizing
     const responsiveCSS = '<style>' +
       '@media (max-width: 768px) {' +
-        /* Hero: chapter h1 is 28px on mobile */
-        'h1[style*="font-size:68px"] { font-size: 28px !important; line-height: 1.15 !important; margin-bottom: 6px !important; white-space: nowrap !important; }' +
-        /* Subtitle: match body text proportion */
-        'p[style*="font-size:30px"] { font-size: 18px !important; margin-bottom: 4px !important; }' +
+        /* Hero: scale down fluidly to fit screen width */
+        'h1[style*="font-size:68px"] { font-size: clamp(32px, 11vw, 48px) !important; line-height: 1.1 !important; margin-bottom: 8px !important; white-space: nowrap !important; }' +
+        /* Subtitle: scale fluidly */
+        'p[style*="font-size:30px"] { font-size: clamp(18px, 5.5vw, 24px) !important; margin-bottom: 8px !important; line-height: 1.4 !important; }' +
         /* Availability line */
-        'p[style*="font-size:20px"][style*="dc2626"] { font-size: 14px !important; }' +
+        'p[style*="font-size:20px"][style*="dc2626"] { font-size: clamp(12px, 3.5vw, 15px) !important; }' +
         /* Outer page: match chapter body padding (10px 5px) */
         'div[style*="padding:40px 20px 80px 20px"] { padding: 10px 5px 24px 5px !important; }' +
         /* Inner content: match chapter grid-content padding (16px) */
@@ -180,9 +180,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         'div[style*="border:2px dashed"] span[style*="font-size:21px"] { font-size: 17px !important; }' +
       '}' +
       '@media (max-width: 480px) {' +
-        'h1[style*="font-size:68px"] { font-size: 22px !important; white-space: nowrap !important; }' +
-        'p[style*="font-size:30px"] { font-size: 16px !important; }' +
-        'p[style*="font-size:20px"][style*="dc2626"] { font-size: 13px !important; }' +
         'div[style*="padding:40px 36px 56px 36px"] { padding: 12px 10px 20px 10px !important; }' +
         'div[style*="padding:40px 20px 80px 20px"] { padding: 8px 4px 20px 4px !important; }' +
         'a[style*="border-radius:20px"][style*="font-size:13px"] { font-size: 10px !important; padding: 3px 7px !important; }' +
