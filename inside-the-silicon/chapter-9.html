@@ -23,7 +23,7 @@
 
     <!-- Sidebar Navigation -->
     <a href="chapter-8.html" class="nav-sidebar nav-prev">← Chapter 8: Branching</a>
-    <a href="chapter-10.html" class="nav-sidebar nav-next">Chapter 10: Occupancy →</a>
+    <a href="chapter-10.html" class="nav-sidebar nav-next">Chapter 10: Why occupancy matters →</a>
 
     <!-- Notebook Header (Date and Days) -->
     <div class="notebook-header">
@@ -53,8 +53,218 @@
 
         <!-- Introduction -->
         <p>
-          <em>Content coming soon...</em>
+          Both a CPU and a GPU need to do one thing well: run lots of math at once. And underneath, they both reach for the same basic idea before splitting into two completely different designs. 
         </p>
+
+        <p>
+          Understanding where they agree first, and then exactly where they fork, is one of those things that quietly separates people who know hardware from people who just memorized acronyms.
+        </p>
+
+        <!-- Section 1 -->
+        <h2><span class="hl-blue">The Seed: Decode once, compute many</span></h2>
+
+        <p>
+          Start at the bottom, with the one problem all of this exists to solve. Running any instruction takes two kinds of hardware. A <strong class="hl-blue">control unit</strong>, the manager, which fetches the instruction, decodes it, and tells the workers what to do. And an <strong class="hl-pink">ALU</strong>, the worker, which does the actual math. The catch is that the manager is expensive. It eats up chip area and power. The worker is comparatively cheap.
+        </p>
+
+        <p>
+          So say you need to add 32 numbers. You have two extremes. One: give every number its own manager and its own worker, 32 of each. That's absurdly wasteful, because all 32 managers are decoding the exact same instruction, paying for the same expensive thing 32 times over. Or two: <strong class="hl-yellow">keep a single manager that decodes the instruction once</strong>, and have it send that one command to 32 workers at the same time.
+        </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> The second option is obviously smarter, and it's the seed of both designs. <strong class="hl-green">Decode once, compute many.</strong> Share the expensive manager, multiply the cheap workers. SIMD and SIMT both grow out of this exact instinct. They only differ in how they wire the workers up.
+        </p>
+
+        <p>
+          Here's where they fork.
+        </p>
+
+        <!-- Section 2 -->
+        <h2><span class="hl-pink">SIMD (Single Instruction, Multiple Data)</span></h2>
+
+        <p>
+          SIMD is the CPU's approach. Its idea is: <strong class="hl-yellow">make the register really wide</strong>. Picture one long 512-bit register where you pack in 16 separate numbers side by side. A single ALU then operates on that whole wide register in one go, hitting all 16 numbers at once.
+        </p>
+
+        <p>
+          The key thing to notice is that there are <strong class="hl-pink">no threads here at all</strong>. One CPU thread is driving that entire wide register. The data is just packed lanes inside one big slot.
+        </p>
+
+        <!-- Section 3 -->
+        <h2><span class="hl-green">SIMT (Single Instruction, Multiple Threads)</span></h2>
+
+        <p>
+          SIMT is the GPU's approach, and it makes the opposite choice. It says, don't widen the register; instead, <strong class="hl-blue">give every worker its own small private register</strong> and call each worker a thread. 
+        </p>
+
+        <p>
+          When a warp of 32 threads runs, the hardware fetches one instruction and broadcasts it to 32 separate scalar workers, each holding its own data in its own register, each with its own ID. They look independent from the programmer's seat, but physically they're all firing the same instruction together.
+        </p>
+
+        <!-- Hand-drawn SIMD vs SIMT Diagram -->
+        <div style="margin: calc(var(--grid-size) * 1.5) 0; position: relative; width: 100%;">
+          <svg viewBox="0 0 600 280" width="100%" height="auto" style="display: block; font-family: 'Patrick Hand', cursive; overflow: visible;">
+            <defs>
+              <filter id="handdrawn" filterUnits="userSpaceOnUse" x="0" y="0" width="600" height="280">
+                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.2" xChannelSelector="R" yChannelSelector="G" />
+              </filter>
+            </defs>
+            
+            <!-- Left Side: SIMD -->
+            <text x="140" y="25" fill="var(--ink-navy)" font-size="16" font-weight="bold" text-anchor="middle">SIMD (CPU Approach)</text>
+            <text x="140" y="40" fill="var(--ink-black)" font-size="11" font-style="italic" text-anchor="middle">1 Thread, 1 Wide Register</text>
+            
+            <!-- Control / Thread 1 -->
+            <rect x="90" y="60" width="100" height="30" fill="var(--hl-yellow)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <text x="140" y="79" fill="var(--ink-black)" font-size="13" font-weight="bold" text-anchor="middle">Thread 1</text>
+            
+            <!-- Instruction arrow -->
+            <path d="M 140,90 L 140,115" fill="none" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <path d="M 137,110 L 140,116 L 143,110 Z" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+            
+            <!-- Wide Register / Vector ALU -->
+            <rect x="40" y="120" width="200" height="40" fill="var(--hl-pink)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="2" filter="url(#handdrawn)" />
+            <!-- Register lanes -->
+            <line x1="90" y1="120" x2="90" y2="160" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <line x1="140" y1="120" x2="140" y2="160" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <line x1="190" y1="120" x2="190" y2="160" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            
+            <text x="65" y="145" fill="var(--ink-black)" font-size="12" font-weight="bold" text-anchor="middle">Lane 1</text>
+            <text x="115" y="145" fill="var(--ink-black)" font-size="12" font-weight="bold" text-anchor="middle">Lane 2</text>
+            <text x="165" y="145" fill="var(--ink-black)" font-size="12" font-weight="bold" text-anchor="middle">Lane 3</text>
+            <text x="215" y="145" fill="var(--ink-black)" font-size="12" font-weight="bold" text-anchor="middle">Lane 4</text>
+            
+            <!-- Bottom Text SIMD -->
+            <text x="140" y="195" fill="var(--ink-red)" font-size="12" font-weight="bold" text-anchor="middle">Manually packed array of data.</text>
+            <text x="140" y="215" fill="var(--ink-navy)" font-size="12" text-anchor="middle">Programmer handles the masking.</text>
+
+            <!-- Vertical Separator -->
+            <line x1="300" y1="20" x2="300" y2="240" stroke="var(--ink-navy)" stroke-width="1.5" stroke-dasharray="6,6" opacity="0.5" filter="url(#handdrawn)" />
+
+            <!-- Right Side: SIMT -->
+            <text x="460" y="25" fill="var(--ink-navy)" font-size="16" font-weight="bold" text-anchor="middle">SIMT (GPU Approach)</text>
+            <text x="460" y="40" fill="var(--ink-black)" font-size="11" font-style="italic" text-anchor="middle">Many Threads, Private Registers</text>
+            
+            <!-- Shared Control -->
+            <rect x="410" y="60" width="100" height="30" fill="var(--hl-yellow)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <text x="460" y="79" fill="var(--ink-black)" font-size="13" font-weight="bold" text-anchor="middle">Instruction Fetch</text>
+
+            <!-- Broadcast tree -->
+            <path d="M 460,90 L 460,105" fill="none" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <path d="M 360,105 L 560,105" fill="none" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            
+            <!-- Individual threads -->
+            <!-- T1 -->
+            <path d="M 360,105 L 360,115" fill="none" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <path d="M 357,110 L 360,116 L 363,110 Z" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+            <rect x="345" y="120" width="30" height="40" fill="var(--hl-blue)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <text x="360" y="137" fill="var(--ink-black)" font-size="11" font-weight="bold" text-anchor="middle">T1</text>
+            <rect x="345" y="145" width="30" height="15" fill="var(--hl-green)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1" filter="url(#handdrawn)" />
+            <text x="360" y="156" fill="var(--ink-black)" font-size="9" text-anchor="middle">Reg</text>
+
+            <!-- T2 -->
+            <path d="M 400,105 L 400,115" fill="none" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <path d="M 397,110 L 400,116 L 403,110 Z" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+            <rect x="385" y="120" width="30" height="40" fill="var(--hl-blue)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <text x="400" y="137" fill="var(--ink-black)" font-size="11" font-weight="bold" text-anchor="middle">T2</text>
+            <rect x="385" y="145" width="30" height="15" fill="var(--hl-green)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1" filter="url(#handdrawn)" />
+            <text x="400" y="156" fill="var(--ink-black)" font-size="9" text-anchor="middle">Reg</text>
+
+            <!-- T3 -->
+            <path d="M 440,105 L 440,115" fill="none" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <path d="M 437,110 L 440,116 L 443,110 Z" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+            <rect x="425" y="120" width="30" height="40" fill="var(--hl-blue)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <text x="440" y="137" fill="var(--ink-black)" font-size="11" font-weight="bold" text-anchor="middle">T3</text>
+            <rect x="425" y="145" width="30" height="15" fill="var(--hl-green)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1" filter="url(#handdrawn)" />
+            <text x="440" y="156" fill="var(--ink-black)" font-size="9" text-anchor="middle">Reg</text>
+
+            <!-- ellipsis dots -->
+            <circle cx="475" cy="140" r="2" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+            <circle cx="485" cy="140" r="2" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+            <circle cx="495" cy="140" r="2" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+
+            <!-- T32 -->
+            <path d="M 545,105 L 545,115" fill="none" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <path d="M 542,110 L 545,116 L 548,110 Z" fill="var(--ink-navy)" filter="url(#handdrawn)" />
+            <rect x="530" y="120" width="30" height="40" fill="var(--hl-blue)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <text x="545" y="137" fill="var(--ink-black)" font-size="11" font-weight="bold" text-anchor="middle">T32</text>
+            <rect x="530" y="145" width="30" height="15" fill="var(--hl-green)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="1" filter="url(#handdrawn)" />
+            <text x="545" y="156" fill="var(--ink-black)" font-size="9" text-anchor="middle">Reg</text>
+
+            <!-- Bottom Text SIMT -->
+            <text x="460" y="195" fill="var(--ink-red)" font-size="12" font-weight="bold" text-anchor="middle">Separate hardware threads.</text>
+            <text x="460" y="215" fill="var(--ink-navy)" font-size="12" text-anchor="middle">Hardware automatically handles masking.</text>
+          </svg>
+        </div>
+
+        <p>
+          So SIMD packs many numbers into one wide lane driven by one thread. SIMT gives many threads their own narrow lanes driven by one shared instruction. Same root instinct, mirror-image execution.
+        </p>
+
+        <!-- Section 4 -->
+        <h2><span class="hl-yellow">The Branching Test</span></h2>
+
+        <p>
+          Now the test that exposes the real difference: what happens when the code branches. Say you write: <code>if the value is over 10, double it, otherwise add 5.</code> And half your data goes one way, half the other. Both designs have to deal with this, and how they do it is the whole point.
+        </p>
+
+        <p>
+          <strong>SIMD handles it with <strong class="hl-pink">manual masking</strong>.</strong> The hardware checks all 16 packed values at once and builds a bitmask—a row of 1s and 0s marking which lane passed the test. Then it runs the doubling across everything but only keeps the results in lanes marked 1. Then it runs the add-5 across everything but only keeps the results in lanes marked 0. It does both operations and uses the mask to throw away the half it doesn't want, lane by lane. It works, but it's rigid, and the programmer often has to spell out this masking by hand. For a complex loop, writing that masking yourself is genuinely painful.
+        </p>
+
+        <p>
+          <strong>SIMT handles the same branch with <strong class="hl-blue">hardware serialization</strong>.</strong> The warp activates the 16 threads that took the <code>if</code> path, disables the other 16, and runs the first path. Then it flips, disabling the first 16 and enabling the second 16 to run the <code>else</code> path. Half the workers sit idle during each phase, so the warp runs at half efficiency. This is the <strong class="hl-yellow">divergence penalty</strong>.
+        </p>
+
+        <!-- Section 5 -->
+        <h2><span class="hl-green">The Real Upgrade: Flexibility</span></h2>
+
+        <p>
+          So here's the sharp interview question that follows. If both of them end up running the two branches one after the other anyway, why is SIMT called a better, newer model? What's the actual win?
+        </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> The answer isn't speed, it's <strong class="hl-yellow">who does the hard work</strong>.
+        </p>
+
+        <p>
+          In SIMD, the programmer has to manually pack the vectors, build the masks, and shuffle the lanes themselves. The model is rigid and the code gets ugly fast. 
+        </p>
+
+        <p>
+          In SIMT, the hardware gives you the <strong class="hl-blue">illusion that every thread is independent</strong>. You write plain, normal-looking code with an ordinary <code>if/else</code>, and the hardware quietly handles the masking and the serialization behind your back. SIMT takes the painful bookkeeping off the programmer and buries it in silicon. That's the real upgrade: <strong class="hl-green">flexibility</strong>, not raw throughput.
+        </p>
+
+        <p>
+          A few other differences fall out of this same split:
+        </p>
+
+        <ul>
+          <li>SIMD uses one extra-wide vector worker with divided lanes, while SIMT uses an array of separate scalar workers.</li>
+          <li>SIMD has no real threads, so the data shares one unified register file, while in SIMT <strong class="hl-pink">every thread owns its own private registers</strong> and a unique id.</li>
+          <li>SIMD wants its data packed tightly and contiguously in memory to load a vector efficiently, while SIMT lets each thread reach for its own address and leans on the hardware to gather those scattered accesses together.</li>
+          <li>SIMD hides memory delay through the CPU's cache, while SIMT hides it by <strong class="hl-yellow">juggling a massive number of threads</strong>, switching to ready work whenever some threads are stalled waiting on data.</li>
+        </ul>
+
+        <!-- Conclusion -->
+        <div style="margin-top: calc(var(--grid-size) * 2); margin-bottom: var(--grid-size); border-left: 3px solid var(--ink-red); padding-left: 20px;">
+          <h2 class="text-red" style="font-family: 'Patrick Hand', cursive; font-size: 32px; margin-bottom: var(--grid-size);">
+            ↳ The General Takeaway
+          </h2>
+          <p>
+            Both come from the same frugal instinct: decode an instruction once and spread it across many cheap workers to avoid paying for the expensive manager again and again. 
+          </p>
+
+          <p>
+            SIMD spreads it across packed lanes in one wide register and hands the programmer the burden of managing them. SIMT spreads it across many threads with private registers and hides that burden inside the hardware. 
+          </p>
+
+          <p class="handwritten-highlight text-red" style="text-align: center; margin-top: var(--grid-size);">
+            The CPU chose width and control.<br>
+            <span class="hl-yellow" style="font-family: inherit; font-size: inherit;">The GPU chose threads and the illusion of independence.</span>
+          </p>
+        </div>
 
       </div>
     </div>

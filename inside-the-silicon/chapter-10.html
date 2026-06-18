@@ -23,8 +23,7 @@
 
     <!-- Sidebar Navigation -->
     <a href="chapter-9.html" class="nav-sidebar nav-prev">← Chapter 9: What is SIMT?</a>
-    <a href="../putting-it-together/chapter-11.html" class="nav-sidebar nav-next">Chapter 11: Why GPUs suit deep learning →</a>
-
+    <a href="../putting-it-together/chapter-11.html" class="nav-sidebar nav-next">Chapter 11: Deep Learning →</a>
 
     <!-- Notebook Header (Date and Days) -->
     <div class="notebook-header">
@@ -54,8 +53,165 @@
 
         <!-- Introduction -->
         <p>
-          <em>Content coming soon...</em>
+          There's a number GPU programmers obsess over called <strong class="hl-blue">occupancy</strong>, basically how full the chip is with active work. And the trap almost everyone falls into is thinking more of it is always better. Fill the chip to 100 percent and surely it runs fastest. 
         </p>
+
+        <p>
+          The truth is messier, and getting why is one of the sharper things you can understand about how a GPU actually performs.
+        </p>
+
+        <!-- Section 1 -->
+        <h2><span class="hl-green">The Backup Bench: Hiding Latency</span></h2>
+
+        <p>
+          Start with how a GPU deals with slow memory, because that decision shapes everything else. 
+        </p>
+
+        <p>
+          A CPU and a GPU face the same problem: data from memory takes ages to arrive. But they solve it in opposite ways. A CPU tries to <strong class="hl-pink">minimize the wait</strong>. It spends a lot of silicon on big caches so the data is already sitting close by when it's needed. 
+        </p>
+
+        <p>
+          A GPU refuses to spend silicon that way. Instead it <strong class="hl-yellow">hides the wait</strong>. When one warp asks memory for data that won't land for hundreds of cycles, the GPU doesn't sit there. It shoves that warp aside and instantly <strong class="hl-blue">swaps in another warp</strong> that has work ready to go. The math units never stop; the GPU just keeps changing which worker is at the bench. 
+        </p>
+
+        <p>
+          That's <strong class="hl-yellow">latency hiding</strong>, and it's the whole reason a GPU wants lots of warps loaded up. The spare warps are the backup bench that keeps the chip busy while others wait on data.
+        </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> Now you can see why high occupancy looks good. More warps loaded means more backup, more ready work to switch to, more chances to hide the waiting. So far the instinct holds.
+        </p>
+
+        <!-- Section 2 -->
+        <h2><span class="hl-pink">The Trap of 100% Occupancy</span></h2>
+
+        <p>
+          Here's where it breaks. Picture a restaurant with one very fast chef. The <strong class="hl-blue">chef is the math unit</strong>, the <strong class="hl-green">customers waiting to order are the warps</strong>, and the <strong class="hl-pink">supplier bringing potatoes from the market is memory</strong>. 
+        </p>
+
+        <p>
+          Now fill the place completely, every seat taken, <strong class="hl-yellow">100 percent occupancy</strong>. Looks perfect, tons of backup. But the market is out of potatoes. The first customer says "I want a burger but we have to wait for potatoes." Fine, the chef moves to the next customer, who says the same thing. And the next. Every single customer is waiting on the exact same delivery. 
+        </p>
+
+        <!-- Hand-drawn SVG Diagram -->
+        <div style="margin: calc(var(--grid-size) * 1.5) 0; position: relative; width: 100%;">
+          <svg viewBox="0 0 600 280" width="100%" height="auto" style="display: block; font-family: 'Patrick Hand', cursive; overflow: visible;">
+            <defs>
+              <filter id="handdrawn" filterUnits="userSpaceOnUse" x="0" y="0" width="600" height="280">
+                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.2" xChannelSelector="R" yChannelSelector="G" />
+              </filter>
+            </defs>
+            
+            <!-- Left Side: The Restaurant (Core) -->
+            <!-- The Chef (ALU) -->
+            <rect x="50" y="60" width="80" height="120" fill="var(--hl-yellow)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="2" filter="url(#handdrawn)" />
+            <text x="90" y="115" fill="var(--ink-black)" font-size="16" font-weight="bold" text-anchor="middle">Chef</text>
+            <text x="90" y="135" fill="var(--ink-black)" font-size="12" font-style="italic" text-anchor="middle">(Math Unit)</text>
+
+            <!-- The Customers (Warps) -->
+            <rect x="180" y="30" width="140" height="180" fill="var(--hl-blue)" opacity="0.2" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#handdrawn)" />
+            <text x="250" y="55" fill="var(--ink-navy)" font-size="14" font-weight="bold" text-anchor="middle">100% Occupied Tables</text>
+            
+            <!-- Individual tables -->
+            <!-- Table 1 -->
+            <rect x="200" y="70" width="100" height="20" fill="var(--hl-blue)" opacity="0.5" stroke="var(--ink-navy)" stroke-width="1" filter="url(#handdrawn)" />
+            <text x="250" y="84" fill="var(--ink-black)" font-size="11" text-anchor="middle">Waiting for potatoes</text>
+            <!-- Table 2 -->
+            <rect x="200" y="100" width="100" height="20" fill="var(--hl-blue)" opacity="0.5" stroke="var(--ink-navy)" stroke-width="1" filter="url(#handdrawn)" />
+            <text x="250" y="114" fill="var(--ink-black)" font-size="11" text-anchor="middle">Waiting for potatoes</text>
+            <!-- Table 3 -->
+            <rect x="200" y="130" width="100" height="20" fill="var(--hl-blue)" opacity="0.5" stroke="var(--ink-navy)" stroke-width="1" filter="url(#handdrawn)" />
+            <text x="250" y="144" fill="var(--ink-black)" font-size="11" text-anchor="middle">Waiting for potatoes</text>
+            <!-- Table N -->
+            <rect x="200" y="160" width="100" height="20" fill="var(--hl-blue)" opacity="0.5" stroke="var(--ink-navy)" stroke-width="1" filter="url(#handdrawn)" />
+            <text x="250" y="174" fill="var(--ink-black)" font-size="11" text-anchor="middle">Waiting for potatoes</text>
+
+            <!-- Arrows to memory -->
+            <path d="M 320,120 L 450,120" fill="none" stroke="var(--ink-red)" stroke-width="1.5" stroke-dasharray="4,4" filter="url(#handdrawn)" />
+            <path d="M 445,115 L 455,120 L 445,125 Z" fill="var(--ink-red)" filter="url(#handdrawn)" />
+            <text x="385" y="112" fill="var(--ink-red)" font-size="12" font-style="italic" text-anchor="middle">Late Delivery</text>
+
+            <!-- Right Side: Market (Memory) -->
+            <rect x="460" y="60" width="90" height="120" fill="var(--hl-pink)" opacity="0.35" stroke="var(--ink-navy)" stroke-width="2" filter="url(#handdrawn)" />
+            <text x="505" y="115" fill="var(--ink-black)" font-size="16" font-weight="bold" text-anchor="middle">The Market</text>
+            <text x="505" y="135" fill="var(--ink-black)" font-size="12" font-style="italic" text-anchor="middle">(Global Memory)</text>
+
+            <!-- Bottom Note -->
+            <text x="300" y="240" fill="var(--ink-red)" font-size="15" font-weight="bold" text-anchor="middle">"100% occupancy buys you nothing if everyone is stuck."</text>
+          </svg>
+        </div>
+
+        <p>
+          The chef has a hundred people in the room and not one of them can be served, because they all need the one thing that hasn't arrived.
+        </p>
+
+        <p>
+          That's a GPU stalled on memory. When every warp on the bench is waiting on the same slow memory, the scheduler has nobody to switch to. There is no ready work anywhere. So the math unit sits idle even at 100 percent occupancy. The chip was full, and full bought you nothing. 
+        </p>
+
+        <p>
+          <strong class="hl-pink">Occupancy was never the goal.</strong> It was only ever a tool to hide latency, and here there's no latency left to hide, just a universal wait.
+        </p>
+
+        <!-- Section 3 -->
+        <h2><span class="hl-blue">The Fix: Do More with Less</span></h2>
+
+        <p>
+          So what actually fixes it? You flip the usual advice and do less, per a strange logic. 
+        </p>
+
+        <p>
+          Instead of a thousand threads each fetching one number, you use far fewer threads, say a quarter as many, and have <strong class="hl-yellow">each one fetch four numbers at once</strong> and work on all of them. Occupancy drops, maybe to 25 percent, which sounds like a downgrade. But two good things happen.
+        </p>
+
+        <ul>
+          <li><strong>First, the traffic to memory drops.</strong> A thousand separate little requests jamming the memory controller becomes a few hundred bigger ones, so the bus is less congested and data comes back sooner.</li>
+          <li><strong>Second, each thread now has independent work to chew on.</strong> While the first of its four numbers is still in transit from memory, the thread can already be doing math on instructions queued for the others. It keeps its own pipeline busy instead of just waiting.</li>
+        </ul>
+
+        <p>
+          This is <strong class="hl-blue">instruction-level parallelism</strong>, and it means a thread hides latency inside itself rather than relying on the scheduler to find another warp. So lower occupancy, but higher actual performance, because the work got denser.
+        </p>
+
+        <!-- Section 4 -->
+        <h2><span class="hl-green">Hardware Limits: Registers & Shared Memory</span></h2>
+
+        <p>
+          There's a second reason occupancy isn't something you simply crank to the max. You don't fully control it; the hardware does, based on resources. 
+        </p>
+
+        <p>
+          Each Streaming Multiprocessor (SM) has a <strong class="hl-yellow">fixed pool of registers</strong> and a <strong class="hl-pink">fixed amount of fast on-chip shared memory</strong>, and the threads have to split those pools.
+        </p>
+
+        <p>
+          Take registers. Say an SM has a fixed budget of them. If each thread uses few registers, loads of threads fit and occupancy is high. But the moment your code gets complex and each thread needs more variables, each thread eats more registers, and suddenly <strong class="hl-red bold">only half as many threads fit on the SM</strong>. The rest wait in line. Your occupancy just got cut in half, not by choice but because you ran out of register space.
+        </p>
+
+        <p>
+          The same trap exists with shared memory. If a block reserves a big chunk of the on-chip scratchpad, then even if registers are free, no new block can move onto the SM because there's simply no room left. You ran out of space, so occupancy fell.
+        </p>
+
+        <!-- Conclusion -->
+        <div style="margin-top: calc(var(--grid-size) * 2); margin-bottom: var(--grid-size); border-left: 3px solid var(--ink-red); padding-left: 20px;">
+          <h2 class="text-red" style="font-family: 'Patrick Hand', cursive; font-size: 32px; margin-bottom: var(--grid-size);">
+            ↳ The General Takeaway
+          </h2>
+          <p>
+            Occupancy is a safety net for hiding memory delay, <strong class="hl-pink">not a score to maximize</strong>. 
+          </p>
+
+          <p>
+            If your work is badly memory-bound and every warp is stuck waiting on the same data, stuffing the chip to 100 percent does nothing, because a full bench of tired players is still a bench with nobody who can play. Sometimes the smarter move is to lower occupancy on purpose, give each thread more independent work so it hides latency on its own, and ease the pressure on memory at the same time.
+          </p>
+
+          <p class="handwritten-highlight text-red" style="text-align: center; margin-top: var(--grid-size);">
+            The real skill isn't chasing a percentage...<br>
+            <span class="hl-yellow" style="font-family: inherit; font-size: inherit;">it's understanding what the chip is waiting for and arranging the work so it almost never has to wait at all.</span>
+          </p>
+        </div>
 
       </div>
     </div>
