@@ -123,7 +123,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const responsiveCSS = '<style>' +
       '@media (max-width: 768px) {' +
         /* Hero: chapter h1 is 28px on mobile */
-        'h1[style*="font-size:68px"] { font-size: 28px !important; line-height: 1.15 !important; margin-bottom: 6px !important; }' +
+        'h1[style*="font-size:68px"] { font-size: 28px !important; line-height: 1.15 !important; margin-bottom: 6px !important; white-space: nowrap !important; }' +
         /* Subtitle: match body text proportion */
         'p[style*="font-size:30px"] { font-size: 18px !important; margin-bottom: 4px !important; }' +
         /* Availability line */
@@ -180,7 +180,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         'div[style*="border:2px dashed"] span[style*="font-size:21px"] { font-size: 17px !important; }' +
       '}' +
       '@media (max-width: 480px) {' +
-        'h1[style*="font-size:68px"] { font-size: 24px !important; }' +
+        'h1[style*="font-size:68px"] { font-size: 22px !important; white-space: nowrap !important; }' +
         'p[style*="font-size:30px"] { font-size: 16px !important; }' +
         'p[style*="font-size:20px"][style*="dc2626"] { font-size: 13px !important; }' +
         'div[style*="padding:40px 36px 56px 36px"] { padding: 12px 10px 20px 10px !important; }' +
