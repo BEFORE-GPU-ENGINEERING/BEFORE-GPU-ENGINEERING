@@ -119,48 +119,74 @@ document.addEventListener('DOMContentLoaded', async function() {
       JSON.stringify(resourceMap).split('</' + 'script>').join('<\\/' + 'script>') +
       ';</' + 'script>';
 
-    // Responsive CSS to fix mobile layout — injected into the template's <head>
+    // Responsive CSS to fix mobile layout — matched to chapter page sizing
     const responsiveCSS = '<style>' +
       '@media (max-width: 768px) {' +
-        /* shrink hero heading */
-        'h1[style*="font-size:68px"] { font-size: 38px !important; line-height: 1.15 !important; }' +
-        /* shrink hero subtitle */
-        'p[style*="font-size:30px"] { font-size: 20px !important; }' +
-        /* shrink availability line */
-        'p[style*="font-size:20px"][style*="dc2626"] { font-size: 15px !important; }' +
-        /* stack About + Now grid into single column */
-        'div[style*="grid-template-columns:1.4fr"] { display: flex !important; flex-direction: column !important; gap: 20px !important; }' +
-        /* stack skills rows (label + chips) into single column */
-        'div[style*="grid-template-columns:120px"] { display: flex !important; flex-direction: column !important; gap: 10px !important; }' +
-        /* reduce main content padding */
-        'div[style*="padding:40px 36px 56px 36px"] { padding: 20px 16px 36px 16px !important; }' +
-        /* reduce outer page padding */
-        'div[style*="padding:40px 20px 80px 20px"] { padding: 20px 12px 40px 12px !important; }' +
-        /* section headings */
-        'h2[style*="font-size:34px"] { font-size: 26px !important; }' +
-        'h2[style*="font-size:26px"] { font-size: 22px !important; }' +
-        /* project / series cards: single column */
-        'div[style*="grid-template-columns:repeat(auto-fill, minmax(258px, 1fr))"] { grid-template-columns: 1fr !important; }' +
-        /* card headings */
-        'h3[style*="font-size:26px"] { font-size: 22px !important; }' +
-        /* contact chip row: allow wrapping naturally */
-        'div[style*="display:flex"][style*="flex-wrap:wrap"][style*="gap:10px"] { gap: 8px !important; }' +
-        /* chip font size */
-        'a[style*="border-radius:20px"][style*="font-size:13px"] { font-size: 12px !important; padding: 5px 10px !important; }' +
-        /* title row padding */
-        'div[style*="border-bottom:1px solid #2b3a55"][style*="padding:8px 16px"] { padding: 6px 12px !important; font-size: 13px !important; }' +
-        /* footer */
-        'div[style*="border-top:1px dashed"] { flex-direction: column !important; text-align: center !important; }' +
-        /* remove card rotation on mobile for cleaner feel */
+        /* Hero: chapter h1 is 28px on mobile */
+        'h1[style*="font-size:68px"] { font-size: 28px !important; line-height: 1.15 !important; margin-bottom: 6px !important; }' +
+        /* Subtitle: match body text proportion */
+        'p[style*="font-size:30px"] { font-size: 18px !important; margin-bottom: 4px !important; }' +
+        /* Availability line */
+        'p[style*="font-size:20px"][style*="dc2626"] { font-size: 14px !important; }' +
+        /* Outer page: match chapter body padding (10px 5px) */
+        'div[style*="padding:40px 20px 80px 20px"] { padding: 10px 5px 24px 5px !important; }' +
+        /* Inner content: match chapter grid-content padding (16px) */
+        'div[style*="padding:40px 36px 56px 36px"] { padding: 16px 12px 24px 12px !important; }' +
+        /* Section headings: chapter h2 is 28px desktop, keep proportional */
+        'h2[style*="font-size:34px"] { font-size: 22px !important; margin-bottom: 2px !important; }' +
+        'h2[style*="font-size:26px"] { font-size: 20px !important; margin-bottom: 6px !important; }' +
+        /* Card headings */
+        'h3[style*="font-size:26px"] { font-size: 20px !important; }' +
+        /* Body text inside cards and about */
+        'p[style*="font-size:15.5px"] { font-size: 14px !important; line-height: 1.4 !important; }' +
+        'p[style*="line-height:1.5"] { font-size: 16px !important; }' +
+        'p[style*="font-size:17px"] { font-size: 15px !important; }' +
+        /* Cards: single column, tighter padding, no rotation */
+        'div[style*="grid-template-columns:repeat(auto-fill"] { grid-template-columns: 1fr !important; gap: 14px !important; }' +
+        'a[style*="border-radius:10px"][style*="padding:20px"] { padding: 14px !important; gap: 8px !important; }' +
         'a[style*="transform:rotate"] { transform: rotate(0deg) !important; }' +
+        /* Reduce section spacing */
+        'div[style*="margin-bottom:48px"] { margin-bottom: 24px !important; }' +
+        'div[style*="margin-bottom:44px"] { margin-bottom: 20px !important; }' +
+        'div[style*="margin-bottom:36px"] { margin-bottom: 16px !important; }' +
+        'div[style*="margin-bottom:24px"] { margin-bottom: 14px !important; }' +
+        'div[style*="margin-bottom:14px"] { margin-bottom: 8px !important; }' +
+        /* Red divider line */
+        'div[style*="margin-bottom:24px"][style*="height:2px"] { margin-bottom: 12px !important; }' +
+        /* Contact chips: tighter */
+        'div[style*="gap:10px"][style*="margin-bottom:36px"] { gap: 6px !important; margin-bottom: 14px !important; }' +
+        'a[style*="border-radius:20px"][style*="font-size:13px"] { font-size: 11px !important; padding: 4px 8px !important; gap: 5px !important; }' +
+        /* Title bar */
+        'div[style*="border-bottom:1px solid #2b3a55"][style*="padding:8px 16px"] { padding: 6px 10px !important; font-size: 13px !important; }' +
+        /* Outer header (portfolio / date) */
+        'div[style*="margin-bottom:12px"][style*="font-size:14px"] { margin-bottom: 6px !important; font-size: 12px !important; }' +
+        /* Now box */
+        'div[style*="box-shadow:inset 0 0 0 2px #2563eb"] { padding: 12px 14px !important; }' +
+        /* Now label */
+        'div[style*="letter-spacing:2px"][style*="margin-bottom:8px"] { margin-bottom: 4px !important; }' +
+        /* Skills section gaps */
+        'div[style*="flex-direction:column"][style*="gap:18px"] { gap: 12px !important; }' +
+        /* Skill chip tags */
+        'span[style*="border-radius:14px"][style*="font-size:14px"] { font-size: 12px !important; padding: 2px 8px !important; }' +
+        /* Phase/status badges */
+        'span[style*="font-size:11px"] { font-size: 10px !important; }' +
+        'span[style*="font-size:12px"][style*="font-weight:700"] { font-size: 11px !important; }' +
+        /* Footer */
+        'div[style*="margin-top:48px"] { margin-top: 24px !important; }' +
+        'div[style*="border-top:1px dashed"] { flex-direction: column !important; text-align: center !important; gap: 4px !important; font-size: 11px !important; }' +
+        /* Dashed placeholder cards */
+        'div[style*="border:2px dashed"] { padding: 14px !important; min-height: 100px !important; }' +
+        'div[style*="border:2px dashed"] span[style*="font-size:34px"] { font-size: 26px !important; }' +
+        'div[style*="border:2px dashed"] span[style*="font-size:21px"] { font-size: 17px !important; }' +
       '}' +
       '@media (max-width: 480px) {' +
-        'h1[style*="font-size:68px"] { font-size: 30px !important; }' +
-        'p[style*="font-size:30px"] { font-size: 17px !important; }' +
-        'div[style*="padding:40px 36px 56px 36px"] { padding: 16px 12px 28px 12px !important; }' +
-        'div[style*="padding:40px 20px 80px 20px"] { padding: 12px 8px 28px 8px !important; }' +
-        /* skills chips smaller */
-        'span[style*="border-radius:14px"][style*="font-size:14px"] { font-size: 12px !important; padding: 2px 8px !important; }' +
+        'h1[style*="font-size:68px"] { font-size: 24px !important; }' +
+        'p[style*="font-size:30px"] { font-size: 16px !important; }' +
+        'p[style*="font-size:20px"][style*="dc2626"] { font-size: 13px !important; }' +
+        'div[style*="padding:40px 36px 56px 36px"] { padding: 12px 10px 20px 10px !important; }' +
+        'div[style*="padding:40px 20px 80px 20px"] { padding: 8px 4px 20px 4px !important; }' +
+        'a[style*="border-radius:20px"][style*="font-size:13px"] { font-size: 10px !important; padding: 3px 7px !important; }' +
+        'span[style*="border-radius:14px"][style*="font-size:14px"] { font-size: 11px !important; padding: 2px 6px !important; }' +
       '}' +
     '</' + 'style>';
 
@@ -205,32 +231,34 @@ document.addEventListener('DOMContentLoaded', async function() {
       window.Babel.transformScriptTags();
     }
 
-    // Post-render mobile responsiveness fix — DOM manipulation is more
-    // reliable than CSS attribute selectors on inline styles.
+    // Post-render mobile fix — direct DOM manipulation for layouts
+    // that CSS attribute selectors can't reliably reach.
     (function applyMobileFixes() {
       function fixLayout() {
-        var isMobile = window.innerWidth <= 768;
-        // Find all elements with inline grid-template-columns
+        var w = window.innerWidth;
+        var isMobile = w <= 768;
         document.querySelectorAll('*').forEach(function(el) {
           var s = el.getAttribute('style') || '';
-          // About + Now section (1.4fr 1fr grid)
+          // About + Now section → stack vertically
           if (s.indexOf('1.4fr') !== -1 && s.indexOf('grid') !== -1) {
             if (isMobile) {
               el.style.display = 'flex';
               el.style.flexDirection = 'column';
-              el.style.gap = '20px';
+              el.style.gap = '14px';
+              el.style.marginBottom = '16px';
             } else {
               el.style.display = '';
               el.style.flexDirection = '';
               el.style.gap = '';
+              el.style.marginBottom = '';
             }
           }
-          // Skills label + chips rows (120px 1fr grid)
+          // Skills label + chips rows → stack vertically
           if (s.indexOf('120px') !== -1 && s.indexOf('grid') !== -1) {
             if (isMobile) {
               el.style.display = 'flex';
               el.style.flexDirection = 'column';
-              el.style.gap = '10px';
+              el.style.gap = '6px';
             } else {
               el.style.display = '';
               el.style.flexDirection = '';
