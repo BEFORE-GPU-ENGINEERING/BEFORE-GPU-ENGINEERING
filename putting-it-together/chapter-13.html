@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Putting it Together - Chapter 13: GPUs with CPU-style caches?</title>
+  <title>Putting it Together - Chapter 13: what if a gpu had cpu-style caches</title>
 
   <!-- Handwriting and casual fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,7 +23,7 @@
 
     <!-- Sidebar Navigation -->
     <a href="chapter-12.html" class="nav-sidebar nav-prev">← Chapter 12: Latency hiding</a>
-    <a href="chapter-14.html" class="nav-sidebar nav-next">Chapter 14: Memory wall & HBM →</a>
+    <a href="chapter-14.html" class="nav-sidebar nav-next">Chapter 14: The memory wall →</a>
 
     <!-- Notebook Header (Date and Days) -->
     <div class="notebook-header">
@@ -48,13 +48,165 @@
       <div class="notebook-grid-content">
 
         <!-- Title -->
-        <h1><span class="hl-yellow">GPUs with CPU-style caches?</span></h1>
+        <h1><span class="hl-yellow">what if a gpu had cpu-style caches</span></h1>
         <span class="annotation">*worked out from first principles*</span>
 
         <!-- Introduction -->
         <p>
-          <em>Content coming soon...</em>
+          Here's a tempting idea. Cache is the fastest memory on a chip, the stuff that keeps data right next to the cores so they never wait. 
         </p>
+        
+        <p class="text-blue">
+          A CPU has lots of it. A GPU has very little. So why not just give a GPU a big fat CPU-style cache and make it even faster. It sounds obviously good. <span class="hl-pink">It is actually a disaster</span>, and walking through exactly why it fails teaches you more about chip design than almost anything else.
+        </p>
+
+        <!-- Section 1 -->
+        <h2><span class="hl-green">The Zero-Sum Game of Silicon</span></h2>
+
+        <p>
+          The whole thing rests on one hard fact. <strong class="hl-yellow">A chip is a fixed size.</strong>
+        </p>
+
+        <p class="text-blue">
+          That limit isn't a budget you can argue with, it's physics. The chip stays roughly the size of a biscuit. So every square millimetre of silicon is a <span class="hl-yellow">zero-sum game</span>. Whatever you spend on one thing, you take away from something else. 
+        </p>
+
+        <p>
+          You cannot grow the cache and keep all the cores. The cache has to come from somewhere, and that somewhere is the workers.
+        </p>
+
+        <!-- Section 2 -->
+        <h2><span class="hl-blue">The Cache Slider (Thought Experiment)</span></h2>
+
+        <p>
+          Picture it as a single slider you can drag, splitting the chip between cache and math cores. 
+        </p>
+
+        <p>
+          Slide it all the way toward cores and you get something like 85 cores and a tiny sliver of cache. That's <strong class="hl-green">GPU territory</strong>, a small cache so that thousands of cheap workers fit, all grinding away. It's built for throughput, doing millions of simple things at once. This is what a GPU is.
+        </p>
+
+        <p class="text-blue">
+          Now start dragging the slider toward cache. Push it to where cache takes about a third of the chip, and your core count drops, maybe from 85 down to 70. And now you have the worst of everything. It's not a proper CPU, because it doesn't have the deep cache and clever single-thread machinery to finish one task blazingly fast. And it's not a proper GPU, because you've thrown away a chunk of its army. It's a jack of all trades and master of none, an expensive design that lost both superpowers at once. <strong class="hl-pink">This hybrid middle is a trap.</strong>
+        </p>
+
+        <p>
+          Drag further, to where cache eats about two-thirds of the chip, and now you're in <strong class="hl-blue">CPU territory</strong>. Lots of cache, big and close, so a single task almost never waits. Very low latency. But the core count has collapsed, maybe to 35, and it is now genuinely bad at parallel work. It can sprint a single task but it cannot field the crowd that AI and graphics demand.
+        </p>
+
+        <p>
+          And just to see the logic end-to-end, slide it all the way to 100 percent cache. Now the entire chip is storage and there are zero cores. You have built a beautiful warehouse with not a single worker in it. Production is zero. It does no math at all. That's the absurd endpoint that proves the point: <strong class="hl-red bold">more cache always means fewer workers, right down to none.</strong>
+        </p>
+
+        <!-- SVG Diagram: The Slider -->
+        <div style="margin: calc(var(--grid-size) * 1.5) 0; position: relative; width: 100%;">
+          <svg viewBox="0 0 700 280" width="100%" height="auto" style="display: block; font-family: 'Patrick Hand', cursive; overflow: visible;">
+            <defs>
+              <filter id="handdrawn" filterUnits="userSpaceOnUse" x="0" y="0" width="700" height="280">
+                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.2" xChannelSelector="R" yChannelSelector="G" />
+              </filter>
+            </defs>
+
+            <!-- Title & Slider Background -->
+            <text x="350" y="25" fill="var(--ink-navy)" font-size="18" font-weight="bold" text-anchor="middle">The Silicon Slider (Fixed 100% Size)</text>
+            <rect x="50" y="40" width="600" height="15" fill="var(--gray-light)" rx="7" filter="url(#handdrawn)" />
+            <path d="M 50,47 L 650,47" stroke="var(--ink-navy)" stroke-width="2" stroke-dasharray="4,4" filter="url(#handdrawn)" />
+
+            <!-- Positions -->
+            <circle cx="150" cy="47" r="4" fill="var(--ink-navy)" />
+            <circle cx="300" cy="47" r="4" fill="var(--ink-navy)" />
+            <circle cx="450" cy="47" r="4" fill="var(--ink-navy)" />
+            <circle cx="600" cy="47" r="4" fill="var(--ink-navy)" />
+
+            <!-- Chip 1: GPU -->
+            <text x="150" y="75" fill="var(--ink-black)" font-size="14" font-weight="bold" text-anchor="middle">GPU Territory</text>
+            <text x="150" y="90" fill="var(--ink-green)" font-size="12" font-style="italic" text-anchor="middle">15% Cache, 85 Cores</text>
+            <rect x="110" y="100" width="80" height="100" fill="none" stroke="var(--ink-navy)" stroke-width="2" filter="url(#handdrawn)" />
+            <rect x="110" y="100" width="80" height="15" fill="var(--hl-pink)" filter="url(#handdrawn)" />
+            <text x="150" y="112" fill="var(--ink-black)" font-size="10" text-anchor="middle">Cache</text>
+            <rect x="110" y="115" width="80" height="85" fill="var(--hl-green)" opacity="0.3" filter="url(#handdrawn)" />
+            <text x="150" y="160" fill="var(--ink-navy)" font-size="12" font-weight="bold" text-anchor="middle">85 Cores</text>
+
+            <!-- Chip 2: Hybrid Trap -->
+            <text x="300" y="75" fill="var(--ink-red)" font-size="14" font-weight="bold" text-anchor="middle">The Hybrid Trap</text>
+            <text x="300" y="90" fill="var(--ink-black)" font-size="12" font-style="italic" text-anchor="middle">35% Cache, 70 Cores</text>
+            <rect x="260" y="100" width="80" height="100" fill="none" stroke="var(--ink-navy)" stroke-width="2" filter="url(#handdrawn)" />
+            <rect x="260" y="100" width="80" height="35" fill="var(--hl-pink)" filter="url(#handdrawn)" />
+            <text x="300" y="122" fill="var(--ink-black)" font-size="10" text-anchor="middle">Cache</text>
+            <rect x="260" y="135" width="80" height="65" fill="var(--hl-green)" opacity="0.3" filter="url(#handdrawn)" />
+            <text x="300" y="170" fill="var(--ink-navy)" font-size="12" font-weight="bold" text-anchor="middle">70 Cores</text>
+
+            <!-- Chip 3: CPU -->
+            <text x="450" y="75" fill="var(--ink-black)" font-size="14" font-weight="bold" text-anchor="middle">CPU Territory</text>
+            <text x="450" y="90" fill="var(--ink-blue)" font-size="12" font-style="italic" text-anchor="middle">65% Cache, 35 Cores</text>
+            <rect x="410" y="100" width="80" height="100" fill="none" stroke="var(--ink-navy)" stroke-width="2" filter="url(#handdrawn)" />
+            <rect x="410" y="100" width="80" height="65" fill="var(--hl-pink)" filter="url(#handdrawn)" />
+            <text x="450" y="135" fill="var(--ink-black)" font-size="10" text-anchor="middle">Cache</text>
+            <rect x="410" y="165" width="80" height="35" fill="var(--hl-green)" opacity="0.3" filter="url(#handdrawn)" />
+            <text x="450" y="185" fill="var(--ink-navy)" font-size="12" font-weight="bold" text-anchor="middle">35 Cores</text>
+
+            <!-- Chip 4: 100% Cache -->
+            <text x="600" y="75" fill="var(--ink-black)" font-size="14" font-weight="bold" text-anchor="middle">Zero Math</text>
+            <text x="600" y="90" fill="var(--ink-red)" font-size="12" font-style="italic" text-anchor="middle">100% Cache, 0 Cores</text>
+            <rect x="560" y="100" width="80" height="100" fill="none" stroke="var(--ink-navy)" stroke-width="2" filter="url(#handdrawn)" />
+            <rect x="560" y="100" width="80" height="100" fill="var(--hl-pink)" filter="url(#handdrawn)" />
+            <text x="600" y="155" fill="var(--ink-black)" font-size="14" text-anchor="middle">Empty</text>
+            <text x="600" y="170" fill="var(--ink-black)" font-size="12" text-anchor="middle">Warehouse</text>
+
+            <!-- Subtitle -->
+            <text x="350" y="240" fill="var(--ink-black)" font-size="14" font-style="italic" text-anchor="middle">"Whatever you spend on one thing, you take away from something else."</text>
+            <path d="M 200,225 L 500,225" stroke="var(--ink-navy)" stroke-width="1" filter="url(#handdrawn)" />
+
+          </svg>
+        </div>
+
+        <!-- Section 3 -->
+        <h2><span class="hl-pink">The Sneaky Cost: Cache Coherency</span></h2>
+
+        <p>
+          So that's the first cost, you trade away the workers that are the entire reason a GPU exists. But there's a second, sneakier cost that makes big caches on a GPU even worse.
+        </p>
+
+        <p>
+          It's called <strong class="hl-blue">cache coherency</strong>, and it burns power for nothing. 
+        </p>
+
+        <p class="text-blue">
+          Imagine a factory where every worker keeps their own little notebook, their own private cache. Now one worker changes a number, say updates a value from 5 to 10. The problem is every other worker who has that number in their notebook is now holding a stale, wrong value. So the system has to race around telling all of them, the number changed, fix your notebook. 
+        </p>
+
+        <p>
+          With a handful of CPU cores that's manageable. But a GPU has thousands of workers. Keeping thousands of private caches all agreeing with each other means a constant storm of these update messages flying across the chip. That bookkeeping eats enormous power and does zero actual math. 
+        </p>
+
+        <p class="text-blue">
+          So a GPU with thousands of cores and big private caches would spend its energy mostly on keeping everyone's notebooks in sync, not on computing. <strong class="hl-pink">The very thing that makes cache helpful on a few cores makes it a power-burning nightmare on thousands.</strong>
+        </p>
+
+        <!-- Conclusion -->
+        <div style="margin-top: calc(var(--grid-size) * 2); margin-bottom: var(--grid-size); border-left: 3px solid var(--ink-red); padding-left: 20px;">
+          <h2 class="text-red" style="font-family: 'Patrick Hand', cursive; font-size: 32px; margin-bottom: var(--grid-size);">
+            ↳ The Verdict
+          </h2>
+          <p>
+            So the verdict writes itself, and it's really two opposite strategies for two opposite goals. 
+          </p>
+
+          <p>
+            The CPU strategy is to make the cache as big as possible and accept very few cores, four or eight, in order to crush latency and finish one task without ever pausing. 
+          </p>
+
+          <p>
+            The GPU strategy is the mirror image, pack in as many math units as possible, keep thousands of cores, deliberately keep the cache tiny to save room, and deal with the resulting delays not by caching but by the <strong class="hl-green">switching trick</strong>, putting waiting workers to sleep and waking ready ones so the math units never idle. One buys low latency with cache. The other buys high throughput by refusing cache and hiding the wait instead.
+          </p>
+
+          <p class="handwritten-highlight text-red" style="text-align: center; margin-top: var(--grid-size);">
+            A CPU asks how do I finish one thing as fast as possible.<br>
+            A GPU asks how do I finish a million things at once.<br>
+            <span class="hl-yellow" style="font-family: inherit; font-size: inherit;">The moment you try to make one chip answer both, it answers neither.</span>
+          </p>
+        </div>
 
       </div>
     </div>
