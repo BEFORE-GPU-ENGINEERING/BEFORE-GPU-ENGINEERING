@@ -767,6 +767,25 @@
         </div>
 
 
+        <!-- Section 6: Why Auto-Compilation Fails -->
+        <h2><span class="hl-pink">The Answer: Why the Compiler Can't Save You</span></h2>
+
+        <p>
+          So let's go back to the title of this chapter: why can't you just take standard C++ code and let a clever compiler turn it into GPU instructions? 
+        </p>
+
+        <p class="text-blue">
+          Because standard C++ was designed for the "Heavy Engine." The language assumes threads are independent, memory is flat, and branching is practically free. A compiler translating a standard <code>for</code> loop has no way to know how to chop your data into a grid, how to size the blocks to avoid killing register occupancy, or which variables need to sit in the shared scratchpad to avoid melting the memory bus.
+        </p>
+
+        <p>
+          If a compiler simply unrolled a C++ loop and dumped it onto the GPU's "Conveyor Belt", it would shatter the lockstep execution, spill registers to slow memory, and stall out. The compiler lacks the vocabulary to map standard code onto this radically different hardware. 
+        </p>
+
+        <p>
+          To write fast GPU code, you need a way to explicitly tell the hardware about blocks, grids, and shared memory. You need a new vocabulary. That vocabulary is CUDA.
+        </p>
+
         <!-- Conclusion -->
         <div style="margin-top: calc(var(--grid-size) * 2); margin-bottom: var(--grid-size); border-left: 3px solid var(--ink-red); padding-left: 20px;">
           <h2 class="text-red" style="font-family: 'Patrick Hand', cursive; font-size: 32px; margin-bottom: var(--grid-size);">
