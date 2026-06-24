@@ -58,7 +58,7 @@
         </div>
 
         <p>
-          The formula itself is short. A thread's index is its position inside its block, plus its block number times the size of a block. The hardware hands every thread three values for free, baked into special registers it can read instantly: which seat it holds inside its block, which block it belongs to, and how many threads a block contains. From those three numbers, each thread computes its own slot with pure arithmetic, no searching, no sorting, no operating system involved.
+          The formula itself is short. A thread's index is its position inside its block, plus its block number times the size of a block. The hardware hands every thread three values for free, baked into special registers it can read instantly: which seat it holds inside its block, which block it belongs to, and how many threads a block contains. From those three numbers, each thread computes its own slot with <strong class="hl-yellow">pure arithmetic</strong>, no searching, no sorting, no operating system involved.
         </p>
 
         <p class="text-blue">
@@ -142,7 +142,7 @@
         </p>
 
         <p>
-          Remember a warp is 32 threads moving in lockstep, and the hardware loves it when those 32 threads read 32 neighboring slots, because it can grab them all in a single memory transaction. But if you build your formula so that consecutive threads in a warp land on different rows instead of neighboring columns, those 32 threads now reach into 32 scattered locations, and the hardware has to do <strong class="hl-red">32 separate transactions</strong> instead of one. Same data, but memory throughput collapses by an order of magnitude.
+          Remember a warp is 32 threads moving in lockstep, and the hardware loves it when those 32 threads read 32 neighboring slots, because it can grab them all in a <strong class="hl-blue">single memory transaction</strong>. But if you build your formula so that consecutive threads in a warp land on different rows instead of neighboring columns, those 32 threads now reach into 32 scattered locations, and the hardware has to do <strong class="hl-red">32 separate transactions</strong> instead of one. Same data, but memory throughput collapses by an order of magnitude.
         </p>
 
         <div style="margin: calc(var(--grid-size) * 1.5) 0; position: relative; width: 100%;">
@@ -181,11 +181,6 @@
           <div style="margin: calc(var(--grid-size) * 1.5) 0; position: relative; width: 100%;">
             <svg viewBox="0 0 700 300" width="100%" height="auto" style="display:block;font-family:'Patrick Hand',cursive;overflow:visible;"><defs><filter id="k18g" filterUnits="userSpaceOnUse" x="0" y="0" width="700" height="300"><feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2" xChannelSelector="R" yChannelSelector="G"/></filter></defs><text x="350" y="70" fill="var(--ink-blue)" font-size="16" text-anchor="middle" font-weight="bold">ONE FORMULA, TWO PAYOFFS</text><rect x="40" y="92" width="300" height="120" rx="8" fill="none" stroke="var(--ink-green)" stroke-width="1.8" filter="url(#k18g)"/><text x="190" y="120" fill="var(--ink-green)" font-size="15" text-anchor="middle" font-weight="bold">RIGHT FORMULA</text><text x="190" y="148" fill="var(--ink-navy)" font-size="13" text-anchor="middle">block × size + seat</text><text x="190" y="172" fill="var(--ink-navy)" font-size="13" text-anchor="middle">→ no collisions</text><text x="190" y="196" fill="var(--ink-green)" font-size="16" text-anchor="middle" font-weight="bold" font-style="italic">CORRECT</text><rect x="360" y="92" width="300" height="120" rx="8" fill="none" stroke="var(--ink-blue)" stroke-width="1.8" filter="url(#k18g)"/><text x="510" y="120" fill="var(--ink-blue)" font-size="15" text-anchor="middle" font-weight="bold">RIGHT ORDER</text><text x="510" y="148" fill="var(--ink-navy)" font-size="13" text-anchor="middle">fast index on the</text><text x="510" y="168" fill="var(--ink-navy)" font-size="13" text-anchor="middle">contiguous axis → coalesced</text><text x="510" y="196" fill="var(--ink-blue)" font-size="16" text-anchor="middle" font-weight="bold" font-style="italic">FAST</text><rect x="40" y="238" width="620" height="34" rx="8" fill="none" stroke="var(--ink-red)" stroke-width="2" stroke-dasharray="6,4" filter="url(#k18g)"/><text x="350.0" y="261.0" fill="var(--ink-red)" font-size="14" text-anchor="middle" font-weight="bold">The same little equation decides whether your code is correct AND whether it's quick.</text></svg>
           </div>
-
-          <p class="handwritten-highlight text-red" style="text-align: center; margin-top: var(--grid-size);">
-            The same little equation governs both<br>
-            <span class="hl-yellow" style="font-family: inherit; font-size: inherit;">whether your code is correct and whether it's quick.</span>
-          </p>
         </div>
 
       </div>
