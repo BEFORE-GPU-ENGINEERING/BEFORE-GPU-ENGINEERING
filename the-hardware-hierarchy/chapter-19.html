@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Hardware Hierarchy - Chapter 19: Why a GPU can't sync everything at once</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,400;0,700;1,400&family=Patrick+Hand&family=Space+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../style.css">
+  <script src="../script.js" defer></script>
+</head>
+<body>
+
+  <div class="notebook-wrapper">
+
+    <!-- Sidebar Navigation -->
+    <a href="../the-translation-barrier/chapter-18.html" class="nav-sidebar nav-prev">← Chapter 18: Why thread indexing exists</a>
+    <a href="chapter-20.html" class="nav-sidebar nav-next">Chapter 20 →</a>
+
+    <!-- Notebook Header -->
+    <div class="notebook-header">
+      <div class="date-row">
+        <span class="date-label">date</span>
+        <span class="date-value">07 / jul / 26</span>
+      </div>
+      <div class="days-row">
+        <span class="active">m</span><span>t</span><span>w</span><span>t</span><span>f</span><span>s</span><span>s</span>
+      </div>
+    </div>
+
+    <!-- Notebook Bordered Box -->
+    <div class="notebook-box">
+
+      <div class="notebook-title-row">
+        <span><span class="title-prefix">THE HARDWARE HIERARCHY — </span>Chapter 19</span>
+        <a href="../toc.html" class="index-link">index</a>
+        <a href="../index.html" class="index-link" style="margin-left: 12px;">home</a>
+      </div>
+
+      <div class="notebook-grid-content">
+
+        <!-- Title -->
+        <h1><span class="hl-pink">Why a GPU can't sync everything at once</span></h1>
+        <span class="annotation">*why threads group into blocks*</span>
+
+        <!-- Intro -->
+        <p>
+          A GPU has thousands of threads, and you would think the natural thing is to tell them all to pause at a line and wait for each other, the way you sync any group of workers. On a GPU, you cannot do that. There is no way to make every thread in a launch stop and wait at a global barrier, and the reason why is one of the most beautiful constraints in all of hardware. It comes down to two ideas: that closeness is speed, and that waiting can freeze the whole machine.
+        </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> Start with a distinction people blur constantly, because everything else depends on it. A block and an SM are not the same thing. 
+        </p>
+
+        <p>
+          A <strong class="hl-yellow">block</strong> is software, just a number you pick in your code, a team of say 256 threads. You fully control it. An <strong class="hl-blue">SM</strong> (Streaming Multiprocessor) is hardware, an actual physical room etched into the silicon with real math cores, real wires, and a real slab of fast memory inside it. You cannot change it, NVIDIA built it into the chip. So a block is a paper plan, and an SM is the building the plan runs in.
+        </p>
+
+        <!-- DIAGRAM 1: Software Plan vs Physical Room (k19a) -->
+        <div style="margin: calc(var(--grid-size) * 1.5) 0; position: relative; width: 100%;">
+          <svg viewBox="0 0 700 360" width="100%" height="auto" style="display:block;font-family:'Patrick Hand',cursive;overflow:visible;">
+            <defs>
+              <filter id="k19a" filterUnits="userSpaceOnUse" x="0" y="0" width="700" height="360">
+                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="n"/>
+                <feDisplacementMap in="SourceGraphic" in2="n" scale="2" xChannelSelector="R" yChannelSelector="G"/>
+              </filter>
+            </defs>
+            <text x="350" y="40" fill="var(--ink-navy)" font-size="16" text-anchor="middle" font-weight="bold">THE TWO REALITIES</text>
+            
+            <!-- Left: Software -->
+            <rect x="50" y="80" width="280" height="220" rx="4" fill="none" stroke="var(--ink-blue)" stroke-width="2" stroke-dasharray="6,4" filter="url(#k19a)"/>
+            <text x="190" y="110" fill="var(--ink-blue)" font-size="15" text-anchor="middle" font-weight="bold">SOFTWARE: THE BLOCK</text>
+            <text x="190" y="130" fill="var(--ink-navy)" font-size="13" text-anchor="middle">A paper plan you pick in code</text>
+            
+            <rect x="120" y="150" width="140" height="100" rx="2" fill="none" stroke="var(--ink-blue)" stroke-width="1.2" filter="url(#k19a)"/>
+            <text x="190" y="180" fill="var(--ink-blue)" font-size="14" text-anchor="middle">"Team of 256 threads"</text>
+            <!-- Draw a few dots to represent threads -->
+            <!-- We can just write "..." -->
+            <text x="190" y="210" fill="var(--ink-navy)" font-size="20" text-anchor="middle">⋮ ⋯ ⋮</text>
+            <text x="190" y="270" fill="var(--ink-navy)" font-size="12" text-anchor="middle" font-style="italic">Abstract concept, no physical form</text>
+
+            <!-- Arrow between them -->
+            <line x1="340" y1="190" x2="360" y2="190" stroke="var(--ink-navy)" stroke-width="2" filter="url(#k19a)"/>
+            <line x1="360" y1="190" x2="354" y2="184" stroke="var(--ink-navy)" stroke-width="2" stroke-linecap="round" filter="url(#k19a)"/>
+            <line x1="360" y1="190" x2="354" y2="196" stroke="var(--ink-navy)" stroke-width="2" stroke-linecap="round" filter="url(#k19a)"/>
+            <text x="350" y="170" fill="var(--ink-navy)" font-size="12" text-anchor="middle">runs on</text>
+
+            <!-- Right: Hardware -->
+            <rect x="370" y="80" width="280" height="220" rx="4" fill="var(--paper-bg)" stroke="var(--ink-green)" stroke-width="2.5" filter="url(#k19a)"/>
+            <text x="510" y="110" fill="var(--ink-green)" font-size="15" text-anchor="middle" font-weight="bold">HARDWARE: THE SM</text>
+            <text x="510" y="130" fill="var(--ink-navy)" font-size="13" text-anchor="middle">A physical room in the silicon</text>
+            
+            <!-- SM internals -->
+            <rect x="390" y="150" width="80" height="100" rx="2" fill="none" stroke="var(--ink-navy)" stroke-width="1.2" filter="url(#k19a)"/>
+            <text x="430" y="170" fill="var(--ink-navy)" font-size="12" text-anchor="middle" font-weight="bold">Math Cores</text>
+            <rect x="400" y="180" width="20" height="20" fill="none" stroke="var(--ink-navy)" stroke-width="1" filter="url(#k19a)"/>
+            <rect x="440" y="180" width="20" height="20" fill="none" stroke="var(--ink-navy)" stroke-width="1" filter="url(#k19a)"/>
+            <rect x="400" y="210" width="20" height="20" fill="none" stroke="var(--ink-navy)" stroke-width="1" filter="url(#k19a)"/>
+            <rect x="440" y="210" width="20" height="20" fill="none" stroke="var(--ink-navy)" stroke-width="1" filter="url(#k19a)"/>
+
+            <rect x="490" y="150" width="140" height="40" rx="2" fill="none" stroke="var(--ink-green)" stroke-width="1.5" filter="url(#k19a)"/>
+            <text x="560" y="175" fill="var(--ink-green)" font-size="13" text-anchor="middle" font-weight="bold">Shared Scratchpad</text>
+
+            <rect x="490" y="210" width="140" height="40" rx="2" fill="none" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#k19a)"/>
+            <text x="560" y="235" fill="var(--ink-navy)" font-size="13" text-anchor="middle">Registers / State</text>
+
+            <text x="510" y="270" fill="var(--ink-green)" font-size="12" text-anchor="middle" font-style="italic">Fixed layout built by NVIDIA</text>
+
+            <rect x="40" y="320" width="620" height="34" rx="8" fill="none" stroke="var(--ink-red)" stroke-width="2" stroke-dasharray="6,4" filter="url(#k19a)"/>
+            <text x="350" y="343" fill="var(--ink-red)" font-size="14" text-anchor="middle" font-weight="bold">A block is the team you hire. The SM is the room they work in.</text>
+          </svg>
+        </div>
+
+        <h2><span class="hl-blue">Question 1: Why bundle threads into blocks at all?</span></h2>
+
+        <p>
+          Why not just launch a million fully independent threads and let the hardware sort them out? Because <strong class="hl-red">independence is expensive in silicon</strong>.
+        </p>
+
+        <p>
+          A million independent threads would need a million little schedulers and a million separate pieces of state-tracking hardware just to keep them straight. All of that management machinery would eat the chip, leaving no room for the math units that are the whole point.
+        </p>
+
+        <p>
+          So the block is the compromise. You pin a team of threads to one physical room (the SM), and now a single scheduler manages the whole team and they share one pool of resources. The management stays cheap, and the silicon stays mostly math.
+        </p>
+
+        <!-- DIAGRAM 2: Independence is Expensive (k19b) -->
+        <div style="margin: calc(var(--grid-size) * 1.5) 0; position: relative; width: 100%;">
+          <svg viewBox="0 0 700 360" width="100%" height="auto" style="display:block;font-family:'Patrick Hand',cursive;overflow:visible;">
+            <defs>
+              <filter id="k19b" filterUnits="userSpaceOnUse" x="0" y="0" width="700" height="360">
+                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="n"/>
+                <feDisplacementMap in="SourceGraphic" in2="n" scale="2" xChannelSelector="R" yChannelSelector="G"/>
+              </filter>
+            </defs>
+            <text x="350" y="40" fill="var(--ink-navy)" font-size="16" text-anchor="middle" font-weight="bold">INDEPENDENCE IS EXPENSIVE</text>
+            
+            <!-- Left: Bad -->
+            <rect x="50" y="80" width="270" height="220" rx="4" fill="none" stroke="var(--ink-red)" stroke-width="2" filter="url(#k19b)"/>
+            <text x="185" y="110" fill="var(--ink-red)" font-size="15" text-anchor="middle" font-weight="bold">FULLY INDEPENDENT THREADS</text>
+            
+            <rect x="70" y="130" width="60" height="70" rx="2" fill="none" stroke="var(--ink-navy)" stroke-width="1" filter="url(#k19b)"/>
+            <text x="100" y="150" fill="var(--ink-red)" font-size="11" text-anchor="middle">Scheduler</text>
+            <text x="100" y="170" fill="var(--ink-navy)" font-size="11" text-anchor="middle">Thread 0</text>
+
+            <rect x="140" y="130" width="60" height="70" rx="2" fill="none" stroke="var(--ink-navy)" stroke-width="1" filter="url(#k19b)"/>
+            <text x="170" y="150" fill="var(--ink-red)" font-size="11" text-anchor="middle">Scheduler</text>
+            <text x="170" y="170" fill="var(--ink-navy)" font-size="11" text-anchor="middle">Thread 1</text>
+
+            <rect x="210" y="130" width="60" height="70" rx="2" fill="none" stroke="var(--ink-navy)" stroke-width="1" filter="url(#k19b)"/>
+            <text x="240" y="150" fill="var(--ink-red)" font-size="11" text-anchor="middle">Scheduler</text>
+            <text x="240" y="170" fill="var(--ink-navy)" font-size="11" text-anchor="middle">Thread 2</text>
+
+            <rect x="70" y="210" width="60" height="70" rx="2" fill="none" stroke="var(--ink-navy)" stroke-width="1" filter="url(#k19b)"/>
+            <text x="100" y="230" fill="var(--ink-red)" font-size="11" text-anchor="middle">Scheduler</text>
+            <text x="100" y="250" fill="var(--ink-navy)" font-size="11" text-anchor="middle">Thread 3</text>
+
+            <text x="185" y="250" fill="var(--ink-red)" font-size="20" text-anchor="middle" font-weight="bold">...</text>
+
+            <text x="185" y="285" fill="var(--ink-red)" font-size="13" text-anchor="middle" font-style="italic">Millions of schedulers eat the chip!</text>
+
+            <!-- Right: Good -->
+            <rect x="380" y="80" width="270" height="220" rx="4" fill="var(--paper-bg)" stroke="var(--ink-green)" stroke-width="2.5" filter="url(#k19b)"/>
+            <text x="515" y="110" fill="var(--ink-green)" font-size="15" text-anchor="middle" font-weight="bold">BUNDLED INTO BLOCKS</text>
+            
+            <rect x="400" y="130" width="230" height="40" rx="2" fill="none" stroke="var(--ink-green)" stroke-width="1.5" filter="url(#k19b)"/>
+            <text x="515" y="155" fill="var(--ink-green)" font-size="13" text-anchor="middle" font-weight="bold">1 Shared Scheduler</text>
+
+            <rect x="400" y="180" width="230" height="100" rx="2" fill="none" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#k19b)"/>
+            <text x="515" y="200" fill="var(--ink-navy)" font-size="13" text-anchor="middle">Block of 256 Threads</text>
+            <text x="515" y="230" fill="var(--ink-navy)" font-size="20" text-anchor="middle">⋮ ⋯ ⋮</text>
+            
+            <text x="515" y="260" fill="var(--ink-green)" font-size="13" text-anchor="middle" font-style="italic">Leaves room for actual math cores</text>
+
+            <rect x="40" y="320" width="620" height="34" rx="8" fill="none" stroke="var(--ink-red)" stroke-width="2" stroke-dasharray="6,4" filter="url(#k19b)"/>
+            <text x="350" y="343" fill="var(--ink-red)" font-size="14" text-anchor="middle" font-weight="bold">Management machinery is expensive. Bundling threads keeps it cheap.</text>
+          </svg>
+        </div>
+
+        <h2><span class="hl-yellow">Question 2: Why must a block stay on one SM?</span></h2>
+
+        <p>
+          This is where closeness enters. Why can't half of a block run in one room and half in another? Because the fast scratchpad memory the team shares is physically inside the SM. It's a tiny slab of ultra-fast memory sitting millimeters from the cores, reachable through short local wires.
+        </p>
+
+        <p>
+          If you split a block across two SMs, half the threads would have to reach all the way across the chip to touch that shared scratchpad, which would be no faster than going to slow main memory. The entire speed advantage of sharing would vanish.
+        </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> So the rule is absolute: a block lands whole on one SM, so every thread in it can hit the shared scratchpad through local wires. <strong class="hl-pink">This is locality, and locality is speed.</strong>
+        </p>
+
+        <!-- DIAGRAM 3: Locality is Speed (k19c) -->
+        <div style="margin: calc(var(--grid-size) * 1.5) 0; position: relative; width: 100%;">
+          <svg viewBox="0 0 700 420" width="100%" height="auto" style="display:block;font-family:'Patrick Hand',cursive;overflow:visible;">
+            <defs>
+              <filter id="k19c" filterUnits="userSpaceOnUse" x="0" y="0" width="700" height="420">
+                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="n"/>
+                <feDisplacementMap in="SourceGraphic" in2="n" scale="2" xChannelSelector="R" yChannelSelector="G"/>
+              </filter>
+            </defs>
+            <text x="350" y="40" fill="var(--ink-navy)" font-size="16" text-anchor="middle" font-weight="bold">LOCALITY IS SPEED</text>
+            
+            <!-- Left: Split Block -->
+            <rect x="40" y="80" width="300" height="260" rx="4" fill="none" stroke="var(--ink-red)" stroke-width="2" filter="url(#k19c)"/>
+            <text x="190" y="110" fill="var(--ink-red)" font-size="15" text-anchor="middle" font-weight="bold">BAD: SPLIT ACROSS SMs</text>
+            
+            <!-- SM 1 -->
+            <rect x="60" y="140" width="110" height="140" rx="2" fill="none" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#k19c)"/>
+            <text x="115" y="160" fill="var(--ink-navy)" font-size="13" text-anchor="middle" font-weight="bold">SM 1</text>
+            <rect x="70" y="170" width="90" height="40" rx="2" fill="var(--paper-bg)" stroke="var(--ink-green)" stroke-width="1.5" filter="url(#k19c)"/>
+            <text x="115" y="195" fill="var(--ink-green)" font-size="12" text-anchor="middle">Shared Mem</text>
+            <text x="115" y="240" fill="var(--ink-navy)" font-size="12" text-anchor="middle">Threads 0-127</text>
+
+            <!-- SM 2 -->
+            <rect x="210" y="140" width="110" height="140" rx="2" fill="none" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#k19c)"/>
+            <text x="265" y="160" fill="var(--ink-navy)" font-size="13" text-anchor="middle" font-weight="bold">SM 2</text>
+            <text x="265" y="240" fill="var(--ink-navy)" font-size="12" text-anchor="middle">Threads 128-255</text>
+
+            <!-- Slow wire connecting them -->
+            <path d="M 265 220 Q 265 190 160 190" fill="none" stroke="var(--ink-red)" stroke-width="2" stroke-dasharray="4,3" filter="url(#k19c)"/>
+            <polygon points="160,186 160,194 150,190" fill="var(--ink-red)" filter="url(#k19c)"/>
+            <text x="210" y="205" fill="var(--ink-red)" font-size="11" text-anchor="middle">Slow Global Bus</text>
+            
+            <text x="190" y="315" fill="var(--ink-red)" font-size="13" text-anchor="middle" font-style="italic">Distance destroys the speed advantage!</text>
+
+            <!-- Right: Kept Whole -->
+            <rect x="360" y="80" width="300" height="260" rx="4" fill="var(--paper-bg)" stroke="var(--ink-green)" stroke-width="2.5" filter="url(#k19c)"/>
+            <text x="510" y="110" fill="var(--ink-green)" font-size="15" text-anchor="middle" font-weight="bold">GOOD: WHOLE ON ONE SM</text>
+            
+            <rect x="420" y="140" width="180" height="140" rx="2" fill="none" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#k19c)"/>
+            <text x="510" y="160" fill="var(--ink-navy)" font-size="13" text-anchor="middle" font-weight="bold">SINGLE SM</text>
+            
+            <rect x="440" y="170" width="140" height="40" rx="2" fill="var(--paper-bg)" stroke="var(--ink-green)" stroke-width="1.5" filter="url(#k19c)"/>
+            <text x="510" y="195" fill="var(--ink-green)" font-size="12" text-anchor="middle">Shared Scratchpad</text>
+
+            <text x="510" y="250" fill="var(--ink-navy)" font-size="13" text-anchor="middle">All 256 Threads</text>
+
+            <!-- Short wires -->
+            <line x1="510" y1="230" x2="510" y2="215" stroke="var(--ink-green)" stroke-width="2" filter="url(#k19c)"/>
+            <polygon points="506,215 514,215 510,205" fill="var(--ink-green)" filter="url(#k19c)"/>
+            <text x="550" y="225" fill="var(--ink-green)" font-size="11" text-anchor="start">Short local wires</text>
+            
+            <text x="510" y="315" fill="var(--ink-green)" font-size="13" text-anchor="middle" font-style="italic">Instant access, instant sync.</text>
+
+            <rect x="40" y="360" width="620" height="34" rx="8" fill="none" stroke="var(--ink-red)" stroke-width="2" stroke-dasharray="6,4" filter="url(#k19c)"/>
+            <text x="350" y="383" fill="var(--ink-red)" font-size="14" text-anchor="middle" font-weight="bold">A block lands completely in one room. This physical locality guarantees speed.</text>
+          </svg>
+        </div>
+
+        <p>
+          And the same logic explains why the in-block sync you <em>do</em> have only works inside a block. When you tell a block's threads to all wait for each other, that works because they are all in the same room, and the signal travels through fast local wires. One bell in one room, everyone hears it instantly.
+        </p>
+
+        <p>
+          Try to ring that bell across the whole factory, across dozens of separate SMs, and the signal has to crawl over the slow global buses connecting them. By the time it reached everyone, you would have spent as long as a slow memory access. The barrier was supposed to be fast, and distance destroyed it.
+        </p>
+
+        <h2><span class="hl-red">The Deep One: The Grid-Wide Deadlock</span></h2>
+
+        <p>
+          Why can't you just have a grid-wide barrier where every block in the launch waits for every other block? Because not all your blocks are actually running at the same time. You might launch a million threads, but the chip can only hold a fraction of them at once. So the hardware runs them in <strong class="hl-blue">waves</strong>.
+        </p>
+
+        <p>
+          The first wave fills the SMs, the rest wait in a queue for room to open up. Now imagine the running wave hits a grid-wide barrier and stops, waiting for all the other blocks to arrive. But the other blocks are stuck in the queue, and they can't start until the running wave finishes and frees up the SMs.
+        </p>
+
+        <div style="margin-bottom: var(--grid-size); text-align: center;">
+          <p class="handwritten-highlight text-red" style="margin-bottom: 0; text-align: center;">
+            ↳ The Circular Wait:
+          </p>
+          <p class="hl-yellow" style="font-family: 'Space Mono', monospace; font-size: 15px; display: inline-block; padding: 0 10px; margin-top: 0; margin-bottom: 0; line-height: var(--grid-size); height: var(--grid-size); border-radius: 4px; letter-spacing: normal;">
+            The running wave waits for the queued blocks. The queued blocks wait for the running wave.
+          </p>
+        </div>
+
+        <p>
+          Each is waiting for the other. The machine freezes forever. This is a circular wait, the textbook recipe for deadlock.
+        </p>
+
+        <!-- DIAGRAM 4: The Circular Wait Deadlock (k19d) -->
+        <div style="margin: calc(var(--grid-size) * 1.5) 0; position: relative; width: 100%;">
+          <svg viewBox="0 0 700 460" width="100%" height="auto" style="display:block;font-family:'Patrick Hand',cursive;overflow:visible;">
+            <defs>
+              <filter id="k19d" filterUnits="userSpaceOnUse" x="0" y="0" width="700" height="460">
+                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="n"/>
+                <feDisplacementMap in="SourceGraphic" in2="n" scale="2" xChannelSelector="R" yChannelSelector="G"/>
+              </filter>
+            </defs>
+            <text x="350" y="40" fill="var(--ink-navy)" font-size="16" text-anchor="middle" font-weight="bold">THE GRID-WIDE DEADLOCK</text>
+            
+            <!-- Running Wave box -->
+            <rect x="150" y="80" width="400" height="120" rx="4" fill="var(--paper-bg)" stroke="var(--ink-blue)" stroke-width="2" filter="url(#k19d)"/>
+            <text x="350" y="110" fill="var(--ink-blue)" font-size="15" text-anchor="middle" font-weight="bold">RUNNING WAVE (Inside the SMs)</text>
+            <rect x="180" y="130" width="80" height="40" rx="2" fill="none" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#k19d)"/>
+            <text x="220" y="155" fill="var(--ink-navy)" font-size="13" text-anchor="middle">Block 0</text>
+            <rect x="280" y="130" width="80" height="40" rx="2" fill="none" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#k19d)"/>
+            <text x="320" y="155" fill="var(--ink-navy)" font-size="13" text-anchor="middle">Block 1</text>
+            <text x="390" y="155" fill="var(--ink-navy)" font-size="13" text-anchor="middle">...</text>
+            
+            <rect x="440" y="130" width="80" height="40" rx="2" fill="var(--ink-red)" stroke="var(--ink-navy)" stroke-width="1.5" filter="url(#k19d)"/>
+            <text x="480" y="155" fill="white" font-size="12" text-anchor="middle" font-weight="bold">GLOBAL BARRIER</text>
+            <text x="350" y="190" fill="var(--ink-red)" font-size="13" text-anchor="middle" font-style="italic">Stopped. Waiting for ALL blocks to arrive.</text>
+
+            <!-- Queued Wave box -->
+            <rect x="150" y="270" width="400" height="100" rx="4" fill="none" stroke="var(--ink-navy)" stroke-width="2" stroke-dasharray="4,4" filter="url(#k19d)"/>
+            <text x="350" y="300" fill="var(--ink-navy)" font-size="15" text-anchor="middle" font-weight="bold">QUEUED WAVE (Waiting outside)</text>
+            <rect x="240" y="315" width="80" height="30" rx="2" fill="none" stroke="var(--ink-navy)" stroke-width="1" filter="url(#k19d)"/>
+            <text x="280" y="335" fill="var(--ink-navy)" font-size="12" text-anchor="middle">Block 998</text>
+            <rect x="330" y="315" width="80" height="30" rx="2" fill="none" stroke="var(--ink-navy)" stroke-width="1" filter="url(#k19d)"/>
+            <text x="370" y="335" fill="var(--ink-navy)" font-size="12" text-anchor="middle">Block 999</text>
+            <text x="350" y="360" fill="var(--ink-red)" font-size="13" text-anchor="middle" font-style="italic">Stuck. Can't enter SMs until Running Wave finishes.</text>
+
+            <!-- Deadlock Arrows -->
+            <!-- Arrow down: Running wave waits for queued wave -->
+            <path d="M 120 140 Q 50 140 50 230 Q 50 320 120 320" fill="none" stroke="var(--ink-red)" stroke-width="2" filter="url(#k19d)"/>
+            <polygon points="120,316 120,324 130,320" fill="var(--ink-red)" filter="url(#k19d)"/>
+            <text x="70" y="235" fill="var(--ink-red)" font-size="13" text-anchor="middle" transform="rotate(-90 70,235)">waits for</text>
+
+            <!-- Arrow up: Queued wave waits for running wave -->
+            <path d="M 580 320 Q 650 320 650 230 Q 650 140 580 140" fill="none" stroke="var(--ink-red)" stroke-width="2" filter="url(#k19d)"/>
+            <polygon points="580,136 580,144 570,140" fill="var(--ink-red)" filter="url(#k19d)"/>
+            <text x="630" y="235" fill="var(--ink-red)" font-size="13" text-anchor="middle" transform="rotate(90 630,235)">waits for</text>
+
+            <rect x="40" y="400" width="620" height="34" rx="8" fill="none" stroke="var(--ink-red)" stroke-width="2" stroke-dasharray="6,4" filter="url(#k19d)"/>
+            <text x="350" y="423" fill="var(--ink-red)" font-size="14" text-anchor="middle" font-weight="bold">This is a circular wait. The machine freezes forever.</text>
+          </svg>
+        </div>
+
+        <p>
+          And the obvious fix doesn't work either. Why not just pause the running wave, swap in a waiting block, let it reach the barrier, and swap back? Because a GPU cannot cheaply pause a block partway through.
+        </p>
+
+        <p>
+          A block holds its registers and scratchpad on the SM until it completely finishes, and there is no mechanism to yank it out mid-flight. Doing so would mean dumping all its registers out to slow main memory and reloading them later, which is exactly the expensive, locality-destroying thing the GPU is designed to avoid. So unlike a CPU, which casually pauses and resumes tasks all day, a GPU commits an SM to a block until that block is done. No take-backs.
+        </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> The rule emerges from physics, not from laziness. You cannot sync the whole grid because the blocks waiting in the queue can never reach the barrier while the running blocks are stuck waiting for them.
+        </p>
+
+        <h2><span class="hl-green">The Exception That Proves The Rule</span></h2>
+
+        <p>
+          There is a clever exception that actually proves the rule rather than breaking it. There is a way to sync across blocks, but it comes with a hard condition: <strong class="hl-yellow">you may only launch as many blocks as can physically fit on the chip at the same time.</strong>
+        </p>
+
+        <p>
+          In other words, you are forced to launch exactly one wave, with no queue behind it. And once there is no queue, there is no circular wait, because every block is already resident on an SM, alive and able to reach the barrier. The deadlock vanishes, not by some trick, but because the dangerous situation—blocks stuck waiting outside—was eliminated by design. It is a strict confirmation of the principle: grid-wide sync is only safe when every participant fits in physical space at once.
+        </p>
+
+        <!-- Takeaway -->
+        <div style="margin-top: calc(var(--grid-size) * 2); margin-bottom: var(--grid-size); border-left: 3px solid var(--ink-red); padding-left: 20px;">
+          <h2 class="text-red" style="font-family: 'Patrick Hand', cursive; font-size: 32px; margin-bottom: var(--grid-size);">
+            ↳ The General Takeaway
+          </h2>
+          <p>
+            A block is your software team, an SM is the physical room it runs in, and the block lands whole on one room so its threads can share fast local memory through short wires.
+          </p>
+          <p>
+            That same locality is why in-block sync is quick and why cross-chip sync would be slow. And grid-wide waiting is impossible in general because the chip runs work in waves, and a running wave waiting on a queued wave that can't start is a frozen circular wait.
+          </p>
+
+          <p class="handwritten-highlight text-red" style="text-align: center; margin-top: var(--grid-size);">
+            The GPU didn't forget to add a global barrier.<br>
+            <span class="hl-yellow" style="font-family: inherit; font-size: inherit;">It refused to, because the physics of closeness and the trap of waiting leave no other choice.</span>
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</body>
+</html>
