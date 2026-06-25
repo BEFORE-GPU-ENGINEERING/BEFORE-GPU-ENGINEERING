@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Hardware Hierarchy - Chapter 20: Why shared memory is so much faster</title>
+  <title>The Hardware Hierarchy - Chapter 20: Why shared memory is fast</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,400;0,700;1,400&family=Patrick+Hand&family=Space+Mono&display=swap" rel="stylesheet">
@@ -15,7 +15,7 @@
   <div class="notebook-wrapper">
 
     <!-- Sidebar Navigation -->
-    <a href="chapter-19.html" class="nav-sidebar nav-prev">← Chapter 19: Why a GPU can't sync everything at once</a>
+    <a href="chapter-19.html" class="nav-sidebar nav-prev">← Chapter 19: Why threads group into blocks</a>
     <a href="chapter-21.html" class="nav-sidebar nav-next">Chapter 21 →</a>
 
     <!-- Notebook Header -->
@@ -41,8 +41,8 @@
       <div class="notebook-grid-content">
 
         <!-- Title -->
-        <h1><span class="hl-pink">Why shared memory is so much faster</span></h1>
-        <span class="annotation">*fighting data movement with shared memory*</span>
+        <h1><span class="hl-pink">Why shared memory is fast</span></h1>
+        <span class="annotation">*the scratchpad and the art of data reuse*</span>
 
         <!-- Intro -->
         <p>
