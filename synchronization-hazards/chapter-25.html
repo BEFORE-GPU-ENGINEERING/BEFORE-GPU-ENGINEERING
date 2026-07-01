@@ -41,13 +41,108 @@
       <div class="notebook-grid-content">
 
         <!-- Title -->
-        <h1><span class="hl-pink">What makes CUDA code "correct"</span></h1>
-        <span class="annotation">*insert subtext here*</span>
+        <h1><span class="hl-pink">What actually makes a CUDA program "correct"</span></h1>
+        <span class="annotation">*The Phantom of GPU Correctness*</span>
 
         <!-- Intro -->
         <p>
-          [Content for chapter 25 goes here]
+          In ordinary programming, there is a comforting rule of thumb. If your code compiles, runs, and gives the right answer, you are mostly done. On a GPU, throw that rule away. A GPU program can compile flawlessly, run fast, produce a perfectly plausible answer, and still be completely broken.
         </p>
+        
+        <p>
+          Nothing crashes, nothing warns you, the number looks right. But its correctness is a phantom, an accident of how the threads happened to be timed on your particular card at that particular moment. And the moment conditions shift, the phantom vanishes and the wrong answer appears. Learning to see this is what separates someone who writes GPU code from someone who can trust GPU code.
+        </p>
+
+        <h2><span class="hl-green">Why the usual definition of correct fails</span></h2>
+        
+        <p>
+          Start with why the usual definition of correct fails here. On a normal processor, execution is deterministic by default. One thread walks one sequence of steps. If it works once, it basically works always, because nothing about the timing changes from run to run. 
+        </p>
+        
+        <p>
+          A GPU is the opposite world. Thousands of threads run in an order nobody promises. They share memory with no automatic protection from stepping on each other. The scheduler picks whichever group of threads is ready, in an order the programming model deliberately leaves undefined. 
+        </p>
+        
+        <p class="text-red">
+          <span class="arrow">↳</span> And reading past the end of an array does not politely crash the way it would on a CPU, it just silently hands back whatever garbage was sitting in that memory. So the same kernel can pass your tests on Monday and fail on Tuesday, not because you changed anything, but because the invisible timing shifted underneath you.
+        </p>
+
+        <h2><span class="hl-blue">The Four Pillars of Correctness</span></h2>
+
+        <p>
+          This is the phantom, and it has a nasty property: it changes the moment you try to study it. You run it under a debugger to catch the bug, and the bug disappears, because the very act of observing slowed things down and rearranged the timing that caused it. 
+        </p>
+        
+        <p>
+          So what does correct even mean here? It means four things holding at once, four pillars, and the terrifying part is that a kernel can violate all four and still look like it works.
+        </p>
+
+        <p>
+          <strong class="hl-green">1. Correct Output:</strong> Meaning the right answer by design, not by luck of the draw. A broken kernel might give the correct result ninety-nine times out of a hundred simply because the same thread usually happens to win the timing race, which lulls you into false confidence right up until the day it doesn't.
+        </p>
+        
+        <p>
+          <strong class="hl-pink">2. No Races:</strong> Meaning threads either write to their own separate spots, or when they must share a spot, they use a protected operation that forces them to take turns. Without that, two threads updating the same place can lose one of the updates, and you never see it happen.
+        </p>
+
+        <p>
+          <strong class="hl-yellow">3. Valid Memory:</strong> Meaning every read and write lands inside the space you actually own. And here the GPU is treacherous, because reading out of bounds does not crash, it quietly returns garbage. Worse, sometimes that garbage happens to be zero because the memory nearby was zeroed, and zero looks like a perfectly reasonable answer, so the bug hides in plain sight and poisons everything computed from it.
+        </p>
+        
+        <p>
+          <strong class="hl-blue">4. Proper Synchronization:</strong> Meaning you place your thread-coordination points exactly where data crosses between threads, and nowhere else. Leave one out and a thread reads stale data. Put one inside a branch that only some threads take and the whole thing can freeze forever. And sprinkling them everywhere just to be safe quietly wrecks your performance. Sync is a scalpel, not a blanket.
+        </p>
+
+        <h2><span class="hl-pink">Three Reasons the Phantom Changes</span></h2>
+        
+        <p>
+          Now the deepest question, can a perfectly compiled kernel really give a different answer every single run? Yes, and it's worth understanding the three reasons, because each one is a place people get ambushed.
+        </p>
+
+        <p>
+          First is <strong class="hl-red">heat</strong>. A slightly warmer processing unit shifts its own clock speed a touch. That tiny shift changes which thread wins an unprotected race. So the same kernel, same input, same chip, gives a different answer purely because the silicon warmed up between runs. Your correctness became a function of temperature.
+        </p>
+
+        <p>
+          Second is <strong class="hl-blue">the build</strong>. A slow debugging build often accidentally lines the threads up in a way that dodges the race window, so everything looks fine while you hunt for the bug and find nothing. Then you compile the fast optimized build for shipping, which reorders instructions and tightens the timing, and the hidden race finally detonates in production. You debugged for hours in the one mode that hid the problem.
+        </p>
+
+        <p>
+          Third is <strong class="hl-green">the machine</strong>. A race can behave one way on one card and differently on another, because the scheduling hardware differs between models. The correct answer you saw on your laptop was an accident of that specific chip. Move it to a different one and the phantom returns.
+        </p>
+
+        <h2><span class="hl-yellow">How to Hunt the Phantom</span></h2>
+
+        <p>
+          So how do you catch something that refuses to crash and hides when observed? You cannot rely on the usual error check, because that only catches things the hardware physically cannot do, like an illegal instruction. It will happily wave through a race that produced a wrong but valid number, or an out-of-bounds read that landed in some other valid chunk of memory. 
+        </p>
+        
+        <p>
+          The real tool is a sanitizer built for exactly this, one that instruments the execution and watches every memory access and every synchronization event as it happens. It has modes for each pillar: one that catches out-of-bounds and misaligned accesses, one that catches shared-memory races, one that catches reads of uninitialized memory, and one that catches illegal synchronization like a barrier inside a divergent branch. It finds the race before the random output ever gets a chance to appear, which is the only reliable way to hunt a phantom.
+        </p>
+
+        <p>
+          And here is the humbling final truth. Suppose you run all those checks, they come back clean, and you get the exact same answer a hundred runs in a row. Are you guaranteed correct? No. You are only guaranteed correct for the inputs and the specific chip you tested. A kernel that is flawless on a small matrix can still hide a race that only wakes up on a larger one, because the bigger problem changes how many threads pack onto the hardware and reshuffles the timing. <span class="hl-pink">Correctness on a GPU is not a single passing test, it's an ongoing discipline.</span>
+        </p>
+
+        <!-- Takeaway -->
+        <div style="margin-top: calc(var(--grid-size) * 2); margin-bottom: var(--grid-size); border-left: 3px solid var(--ink-red); padding-left: 20px;">
+          <h2 class="text-red" style="font-family: 'Patrick Hand', cursive; font-size: 32px; margin-bottom: var(--grid-size);">
+            ↳ The General Takeaway
+          </h2>
+          <p>
+            So the whole picture. On a GPU, a green run proves nothing by itself, because correctness is not the default, it's something you have to actively guarantee against a machine that is fundamentally chaotic. Right answers can come from luck, out-of-bounds reads masquerade as valid data, missing synchronization hides until the timing shifts, and the same code can swing with temperature, with build settings, with the specific card. 
+          </p>
+          
+          <p>
+            The real definition of a correct GPU program is a sharp one: it produces the exact same right answer no matter which thread runs first, which group the scheduler picks, or how hot the chip gets. Determinism wrung out of total chaos. 
+          </p>
+          
+          <p class="handwritten-highlight text-red" style="text-align: center; margin-top: var(--grid-size);">
+            The machine will not give you determinism for free, and it will not warn you when you don't have it. <br>
+            <span class="hl-yellow" style="font-family: inherit; font-size: inherit;">It will just hand you a plausible wrong number and let you ship it.</span>
+          </p>
+        </div>
 
       </div>
     </div>
