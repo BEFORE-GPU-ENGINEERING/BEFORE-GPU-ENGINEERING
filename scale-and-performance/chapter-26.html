@@ -46,11 +46,11 @@
         <h2><span class="hl-yellow">The Free Swap</span></h2>
         
         <p>
-          A CPU with 8 cores wants about 8 threads. A GPU with a few thousand cores wants hundreds of thousands of threads. That ratio makes no sense until you understand the one trick the whole GPU is built around, and the piece of hardware that makes the trick cost nothing. The GPU deliberately floods itself with far more work than it has cores, and then flips between that work for free. Understanding why that flip is free, when the same flip on a CPU is painfully expensive, explains the deepest design choice in the entire chip.
+          A CPU with 8 cores wants about 8 threads. A GPU with a few thousand cores wants hundreds of thousands of threads. That ratio makes no sense until you understand the one trick the whole GPU is built around, and the piece of hardware that makes the trick cost nothing. <strong class="hl-blue">The GPU deliberately floods itself with far more work than it has cores, and then flips between that work for free.</strong> Understanding why that flip is free, when the same flip on a CPU is painfully expensive, explains the deepest design choice in the entire chip.
         </p>
 
         <p>
-          Start with the problem the GPU is solving. Fetching data from main memory takes a very long time, hundreds of clock cycles, because the memory sits physically far from the cores and the request has to travel out, fetch, and travel back. That is a fixed physical cost, no chip can make it disappear. So the question is what the cores do during that long wait. And the naive answer is a disaster. If you launch exactly one thread per core, then every core fires off its memory request at once, every core stalls waiting hundreds of cycles, and there is no other work to do. The cores sit frozen. All that expensive silicon, idle. Giving the GPU exactly as many threads as cores wastes almost the entire machine.
+          Start with the problem the GPU is solving. Fetching data from main memory takes a very long time, hundreds of clock cycles, because the memory sits physically far from the cores and the request has to travel out, fetch, and travel back. That is a fixed physical cost, no chip can make it disappear. So the question is what the cores do during that long wait. And the naive answer is a disaster. If you launch exactly one thread per core, then every core fires off its memory request at once, every core stalls waiting hundreds of cycles, and there is no other work to do. The cores sit frozen. All that expensive silicon, idle. <strong class="hl-pink">Giving the GPU exactly as many threads as cores wastes almost the entire machine.</strong>
         </p>
 
         <h2><span class="hl-blue">Overwhelming the Hardware</span></h2>
@@ -60,13 +60,13 @@
         </p>
         
         <p>
-          The cores never see an idle moment, because there is always another bundle with work ready to go. The long memory wait is still happening, you just hid it behind a wall of other work. This is the GPU's entire performance philosophy, it does not make any single thread fast, it makes sure the cores never wait by always having a backup army ready.
+          The cores never see an idle moment, because there is always another bundle with work ready to go. The long memory wait is still happening, you just hid it behind a wall of other work. This is the GPU's entire performance philosophy, <strong class="hl-green">it does not make any single thread fast, it makes sure the cores never wait by always having a backup army ready.</strong>
         </p>
 
         <h2><span class="hl-green">Why the Switch is Free</span></h2>
 
         <p>
-          But this only works if switching from one bundle to the next is cheap. If every switch cost what a switch costs on a CPU, the cure would be worse than the disease. And here is the beautiful part, on a GPU the switch is essentially free, zero or one cycle, no data moved at all. To see why, you have to look at where the thread's working state, its registers, physically lives.
+          But this only works if switching from one bundle to the next is cheap. If every switch cost what a switch costs on a CPU, the cure would be worse than the disease. And here is the beautiful part, <strong class="hl-blue">on a GPU the switch is essentially free, zero or one cycle, no data moved at all.</strong> To see why, you have to look at where the thread's working state, its registers, physically lives.
         </p>
 
         <p>
@@ -74,11 +74,11 @@
         </p>
 
         <p>
-          Now the GPU, which made the opposite choice. Instead of one small register space shared by whoever is running, a GPU processing unit has one enormous register file, big enough to hold the complete live state of every resident bundle all at once, side by side. When a bundle is assigned to run on that unit, it is handed its own private slice of that giant register file, and it keeps that slice for its entire life. Bundle 0's registers, bundle 1's registers, bundle 2's, they all sit in physical silicon simultaneously, none of them overwriting the others.
+          Now the GPU, which made the opposite choice. Instead of one small register space shared by whoever is running, a GPU processing unit has one enormous register file, big enough to hold the complete live state of every resident bundle all at once, side by side. When a bundle is assigned to run on that unit, it is handed its own private slice of that giant register file, and it keeps that slice for its entire life. <strong class="hl-yellow">Bundle 0's registers, bundle 1's registers, bundle 2's, they all sit in physical silicon simultaneously, none of them overwriting the others.</strong>
         </p>
 
         <p>
-          So ask the key question. When the scheduler switches from one bundle to another, what data moves? <strong class="hl-green">The answer is none.</strong> Nothing is saved, nothing is loaded. Both bundles' full states are already sitting in the register file, permanently, the whole time. The switch is nothing more than the scheduler updating a pointer, telling the execution units to now read from a different slice of the register file. A pointer flip. That is why it costs zero or one cycle while the CPU's costs thousands. The CPU pays because it has to shuffle state in and out of a small shared space. The GPU pays nothing because it never shuffles, it just points somewhere else in a space large enough to hold everyone at once.
+          So ask the key question. When the scheduler switches from one bundle to another, what data moves? <strong class="hl-green">The answer is none.</strong> Nothing is saved, nothing is loaded. Both bundles' full states are already sitting in the register file, permanently, the whole time. The switch is nothing more than the scheduler updating a pointer, telling the execution units to now read from a different slice of the register file. <span class="hl-blue">A pointer flip.</span> That is why it costs zero or one cycle while the CPU's costs thousands. The CPU pays because it has to shuffle state in and out of a small shared space. The GPU pays nothing because it never shuffles, it just points somewhere else in a space large enough to hold everyone at once.
         </p>
 
         <!-- Takeaway -->
@@ -91,7 +91,7 @@
           </p>
 
           <p>
-            The GPU spends its silicon on a gigantic register file so it can hold a huge crowd of threads resident and flip between them for free, and accepts that any single thread runs slowly because it is never trying to be fast at one thing, it is trying to keep every core fed. This is exactly why a lone thread with no parallel siblings runs poorly on a GPU. With nothing to switch to, the free-switch machinery is useless, and you are left with one slow thread on hardware that was never built to rush a single one. 
+            The GPU spends its silicon on a gigantic register file so it can hold a huge crowd of threads resident and flip between them for free, and accepts that any single thread runs slowly because it is never trying to be fast at one thing, it is trying to keep every core fed. This is exactly why <strong class="hl-red">a lone thread with no parallel siblings runs poorly on a GPU.</strong> With nothing to switch to, the free-switch machinery is useless, and you are left with one slow thread on hardware that was never built to rush a single one. 
           </p>
 
           <p class="handwritten-highlight text-red" style="text-align: center; margin-top: var(--grid-size);">
