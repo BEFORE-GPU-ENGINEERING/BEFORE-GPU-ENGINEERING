@@ -41,42 +41,74 @@
       <div class="notebook-grid-content">
 
         <!-- Title -->
-        <h1><span class="hl-blue">The step-by-step anatomy of a kernel launch</span></h1>
-        
-        <h2><span class="hl-yellow">Fire and Forget</span></h2>
-        
+        <h1><span class="hl-yellow">The step-by-step anatomy of a kernel launch</span></h1>
+        <span class="annotation">*worked out from first principles*</span>
+
+        <!-- Introduction -->
         <p>
           You write one line to launch work on the GPU, and the instant you do, your main program moves on to the very next line. It does not wait. The GPU has not even started yet, and your CPU is already off doing something else. This single fact, that launching GPU work is <strong class="hl-red">fire-and-forget</strong>, is the source of a classic bug that makes beginners lose hours, and understanding it is what separates code that accidentally works from code that works on purpose.
         </p>
 
         <p>
-          Start with what actually happens when you launch. It feels like calling a function, where you call, it runs, it returns, and only then do you continue. GPU launches are nothing like that. When you launch, your CPU does not run the GPU work itself. It just writes a little note describing what to do, drops that note into a queue, and immediately walks away to the next line of your program. The note says which work to run, how many threads, and where the data is. That's it. <span class="hl-blue">The CPU is a manager scribbling an order onto a ticket and moving on, not the cook.</span>
+          Start with what actually happens when you launch. It feels like calling a function, where you call, it runs, it returns, and only then do you continue. GPU launches are nothing like that.
+        </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> When you launch, your CPU does not run the GPU work itself. It just writes a little note describing what to do, drops that note into a queue, and immediately walks away to the next line of your program. The note says which work to run, how many threads, and where the data is. That's it. <strong class="hl-blue">The CPU is a manager scribbling an order onto a ticket and moving on, not the cook.</strong>
+        </p>
+
+        <!-- Section 1 -->
+        <h2><span class="hl-yellow">A relay of handoffs</span></h2>
+        
+        <p>
+          And that note travels through a relay of handoffs before any math happens, no single part in charge of the whole trip. The CPU writes the ticket into a queue. The GPU's front-end eventually picks it up. A hardware distributor then hands whole blocks of work to whichever processing units have room. And inside each unit, schedulers feed the actual bundles of 32 threads into the cores. 
         </p>
 
         <p>
-          And that note travels through a relay of handoffs before any math happens, no single part in charge of the whole trip. The CPU writes the ticket into a queue. The GPU's front-end eventually picks it up. A hardware distributor then hands whole blocks of work to whichever processing units have room. And inside each unit, schedulers feed the actual bundles of 32 threads into the cores. Each stage passes to the next independently, which is exactly why it's a relay and not a single call. Nobody escorts the work end to end.
+          Each stage passes to the next independently, which is exactly why it's a relay and not a single call. <span class="hl-yellow">Nobody escorts the work end to end.</span>
         </p>
 
-        <h2><span class="hl-yellow">The Stale-Read Bug</span></h2>
+        <div style="margin-bottom: calc(var(--grid-size) * 1.5); margin-top: calc(var(--grid-size) * 1.5); text-align: center;">
+          <p class="hl-yellow" style="font-family: 'Space Mono', monospace; font-size: 15px; display: inline-block; padding: 0 10px; margin-top: 0; margin-bottom: 0; line-height: var(--grid-size); height: var(--grid-size); border-radius: 4px; letter-spacing: normal;">
+            CPU Queue → GPU Front-end → Hardware Distributor → Scheduler → Cores
+          </p>
+        </div>
+
+        <!-- Section 2 -->
+        <h2><span class="hl-blue">The Stale-Read Bug</span></h2>
 
         <p>
-          Now the consequence that bites everyone, and it follows directly from the CPU not waiting. Suppose you launch some work that fills an array on the GPU, and on the very next line you try to read the result. What do you get? <strong class="hl-red">Garbage.</strong> Because the GPU is still busy computing when your CPU races ahead and reads the memory. The CPU is reading a result that does not exist yet. Two separate processors, one sprinting ahead of the other, and the reader gets there before the writer is done.
+          Now the consequence that bites everyone, and it follows directly from the CPU not waiting. Suppose you launch some work that fills an array on the GPU, and on the very next line you try to read the result. What do you get? <strong class="hl-red">Garbage.</strong> Because the GPU is still busy computing when your CPU races ahead and reads the memory. 
+        </p>
+        
+        <p>
+          The CPU is reading a result that does not exist yet. Two separate processors, one sprinting ahead of the other, and the reader gets there before the writer is done.
         </p>
 
-        <h2><span class="hl-yellow">The Hidden Checkpoint</span></h2>
+        <!-- Section 3 -->
+        <h2><span class="hl-pink">The Hidden Checkpoint</span></h2>
 
         <p>
           So here's a puzzle. If that's true, why does so much beginner code seem to work anyway, reading results right after a launch without any obvious waiting?
         </p>
 
         <p>
-          Because something is quietly saving them without their knowledge. The moment you copy the results back from the GPU to the CPU, that copy operation <strong class="hl-green">refuses to begin until all the previously launched GPU work in its line has actually finished.</strong> So the copy itself acts as a hidden checkpoint. Beginners never write an explicit wait, they just copy the data back, and the copy silently blocks until the GPU is done. The bug is there, but the copy hides it, which is why so many people never even learn that launches are asynchronous. Their code works by accident, propped up by a synchronization they didn't know was happening.
+          Because something is quietly saving them without their knowledge. The moment you copy the results back from the GPU to the CPU, that copy operation <strong class="hl-green">refuses to begin until all the previously launched GPU work in its line has actually finished.</strong> So the copy itself acts as a hidden checkpoint. 
         </p>
 
-        <h2><span class="hl-yellow">Waiting on Purpose</span></h2>
+        <p>
+          Beginners never write an explicit wait, they just copy the data back, and the copy silently blocks until the GPU is done. The bug is there, but the copy hides it, which is why so many people never even learn that launches are asynchronous. Their code works by accident, propped up by a synchronization they didn't know was happening.
+        </p>
+
+        <!-- Section 4 -->
+        <h2><span class="hl-green">Waiting on Purpose</span></h2>
 
         <p>
-          So how do you wait on purpose, when you do need to be sure the GPU has finished? There is a blunt instrument, a call that simply stops the CPU cold until every piece of GPU work issued so far has completed. It's the wait-for-everything hammer. And there are lighter, more surgical versions that wait only for one specific line of work or one specific marker, which matter when you have several independent streams of GPU work running and you don't want to stall all of them just to check on one. The point is, waiting on the GPU is something you must ask for explicitly. It does not happen for free, and assuming it does is the bug.
+          So how do you wait on purpose, when you do need to be sure the GPU has finished? There is a blunt instrument, a call that simply stops the CPU cold until every piece of GPU work issued so far has completed. It's the wait-for-everything hammer. 
+        </p>
+
+        <p>
+          And there are lighter, more surgical versions that wait only for one specific line of work or one specific marker, which matter when you have several independent streams of GPU work running and you don't want to stall all of them just to check on one. The point is, waiting on the GPU is something you must ask for explicitly. It does not happen for free, and assuming it does is the bug.
         </p>
 
         <!-- Takeaway -->
@@ -85,11 +117,11 @@
             ↳ The General Takeaway
           </h2>
           <p>
-            Step back and the reason for all of this is one first principle we keep returning to: the CPU and the GPU are two separate computers joined by a bus. They don't share the same memory or the same flow of execution. So the CPU cannot call a GPU function the way it calls one of its own. It has to send a message across to a separate machine and, if it cares about the answer, explicitly wait for that machine to report back. 
+            Step back and the reason for all of this is one first principle we keep returning to: the CPU and the GPU are two separate computers joined by a bus. They don't share the same memory or the same flow of execution. 
           </p>
 
           <p>
-            The launch is the message, fired off and forgotten. The synchronization calls are how you await the reply. Thinking of it as a normal function call, where waiting is automatic, is precisely the mental model that produces the stale-read bug.
+            So the CPU cannot call a GPU function the way it calls one of its own. It has to send a message across to a separate machine and, if it cares about the answer, explicitly wait for that machine to report back. The launch is the message, fired off and forgotten. The synchronization calls are how you await the reply. Thinking of it as a normal function call, where waiting is automatic, is precisely the mental model that produces the stale-read bug.
           </p>
 
           <p>
