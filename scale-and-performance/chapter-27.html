@@ -92,6 +92,10 @@
             The launch is the message, fired off and forgotten. The synchronization calls are how you await the reply. Thinking of it as a normal function call, where waiting is automatic, is precisely the mental model that produces the stale-read bug.
           </p>
 
+          <p>
+            So the whole picture: launching GPU work is fire-and-forget. The CPU drops a ticket in a queue and immediately moves on while the work travels through a relay of independent handoffs before running. Because the CPU does not wait, reading results too early gives you garbage, the reader outrunning the writer. Beginners get rescued by the copy-back quietly blocking on their behalf, which hides the async nature until the day it doesn't. And the real fix is to synchronize on purpose, choosing the heavy wait-for-everything or a lighter targeted wait depending on what you actually need. 
+          </p>
+
           <p class="handwritten-highlight text-red" style="text-align: center; margin-top: var(--grid-size);">
             <span class="hl-pink" style="font-family: inherit; font-size: inherit;">The GPU is not a subroutine you call and wait on.</span><br>
             It's a separate machine you send orders to and then, deliberately, ask when it's done.<br>
