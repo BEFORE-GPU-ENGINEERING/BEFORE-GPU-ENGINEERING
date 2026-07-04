@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scale & Performance - Chapter '$i'</title>
+  <title>Scale & Performance - Chapter 29: Coalesced vs strided memory access</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,400;0,700;1,400&family=Patrick+Hand&family=Space+Mono&display=swap" rel="stylesheet">
@@ -15,17 +15,17 @@
   <div class="notebook-wrapper">
 
     <!-- Sidebar Navigation -->
-    <a href="#" class="nav-sidebar nav-prev">← Previous Chapter</a>
-    <a href="#" class="nav-sidebar nav-next">Next Chapter →</a>
+    <a href="chapter-28.html" class="nav-sidebar nav-prev">← Chapter 28: Why NVIDIA made CUDA asynchronous</a>
+    <a href="chapter-30.html" class="nav-sidebar nav-next">Chapter 30: How to pick a block size →</a>
 
     <!-- Notebook Header -->
     <div class="notebook-header">
       <div class="date-row">
         <span class="date-label">date</span>
-        <span class="date-value"></span>
+        <span class="date-value">17 / jul / 26</span>
       </div>
       <div class="days-row">
-        <span>m</span><span>t</span><span>w</span><span class="active">t</span><span>f</span><span>s</span><span>s</span>
+        <span>m</span><span>t</span><span>w</span><span>t</span><span class="active">f</span><span>s</span><span>s</span>
       </div>
     </div>
 
@@ -33,7 +33,7 @@
     <div class="notebook-box">
 
       <div class="notebook-title-row">
-        <span><span class="title-prefix">SCALE & PERFORMANCE — </span>Chapter '$i'</span>
+        <span><span class="title-prefix">SCALE & PERFORMANCE — </span>Chapter 29</span>
         <a href="../toc.html" class="index-link">index</a>
         <a href="../index.html" class="index-link" style="margin-left: 12px;">home</a>
       </div>
@@ -41,14 +41,95 @@
       <div class="notebook-grid-content">
 
         <!-- Title -->
-        <h1><span class="hl-blue">Chapter '$i' Title Placeholder</span></h1>
+        <h1><span class="hl-yellow">Coalesced vs strided memory access</span></h1>
+        <span class="annotation">*worked out from first principles*</span>
         
+        <!-- Section 1 -->
+        <h2><span class="hl-blue">The Conveyor Belt</span></h2>
+
         <p>
-          [Content goes here]
+          Here is a puzzle that breaks people's intuition. A bundle of 32 threads reads 32 numbers from memory. In one version they read 32 neighboring slots, in another they read 32 scattered slots. The total amount of data requested is identical, the same 128 bytes either way. And yet the scattered version can be ten times slower. Same bytes, same threads, tenfold difference. The answer to that puzzle is one of the most important performance ideas in all of GPU programming, and it comes down to how memory is physically delivered.
         </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> Start with the hardware fact everything hinges on. The GPU does not fetch memory one byte at a time. It cannot hand you a single spoonful. <strong class="hl-pink">It moves memory in fixed-size boxes, a chunk of 128 bytes at a time.</strong> This is not a software choice, it's baked into how the memory hardware physically works. Whenever any thread asks for even a single value, the memory controller fetches the entire 128-byte box that contains it. Think of it as a delivery truck that only comes in one size, a full 128-byte crate, no matter how little you actually wanted from inside it.
+        </p>
+
+        <p>
+          Now watch what happens in the good case. A bundle of 32 threads, each reading a 4-byte number. Thirty-two times four is exactly 128 bytes. If the threads read neighboring slots, thread 0 at the start, thread 1 right after, and so on, then all 32 of their values sit inside a single 128-byte box. The memory controller sees this, sends one truck, grabs the one crate, and hands each thread its own 4-byte slice out of it. One transaction feeds all 32 threads. Every byte fetched is used. This is called a <strong class="hl-green">coalesced access</strong>, and it's 100 percent efficient.
+        </p>
+
+        <p>
+          Now the disaster. Suppose the threads read scattered slots, each one far from the next, with a big gap between them. Now thread 0's value is in one box, thread 1's value is in a completely different box, thread 2's in yet another. So the memory controller has no choice but to send a separate truck for each one. Thirty-two threads, up to thirty-two separate crate deliveries. And here is the brutal part: each truck still hauls a full 128-byte crate, the thread takes its 4 bytes, and the other 124 bytes are thrown away. So you fetched thirty-two full crates, over four thousand bytes of traffic, to deliver the 128 bytes you actually wanted. Your useful bandwidth collapses to a few percent.
+        </p>
+
+        <p>
+          And this reveals the deeper truth that surprises everyone. The memory system is not choked by the total bytes you need, it's choked by the number of transactions you force. The memory controller has a limit on how many separate fetches it can issue, not just how many bytes it can move. So firing 32 tiny transactions instead of one clogs its queue completely. The whole bundle of threads freezes for hundreds of cycles waiting for all 32 trucks to return, and worse, other bundles that also need memory get stuck behind them in the queue. One badly-arranged read can stall the whole unit. One transaction gets its data and moves on cleanly. <strong class="hl-red">It was never about the weight of the data, it was about how many times you made the conveyor belt run.</strong>
+        </p>
+
+        <!-- Section 2 -->
+        <h2><span class="hl-green">The Array of Structures Trap</span></h2>
+
+        <p>
+          So the practical question, how do you keep your reads coalesced. And this is where a subtle trap catches programmers coming from ordinary CPU code. Imagine you have a bunch of particles, each with a position and a mass, and you store them the natural way: one complete particle after another in memory, all of particle 0's fields together, then all of particle 1's fields, and so on. This feels clean and obvious.
+        </p>
+
+        <p>
+          But now when 32 threads each want just the x-position of their particle, those x-positions are not neighbors in memory, they are spaced far apart with each particle's other fields sitting between them. Every thread lands in a different box. Coalescing shattered.
+        </p>
+
+        <p>
+          The fix is to flip the layout. Instead of storing complete particles back to back, you store all the x-positions together in one array, all the masses together in another, and so on. Now when the 32 threads each grab their x-position, those values are neighbors, packed tight, and the whole bundle collapses into one transaction. The reason CPU programmers get this backwards is that a CPU genuinely prefers the first layout, because a single CPU thread working on one particle wants all its fields sitting together in cache. But a GPU is the opposite, because 32 threads want the same one field at the same instant, so that field needs to be contiguous across particles, not bundled per particle. The same data, arranged two ways, and only one of them feeds the warp in a single gulp.
+        </p>
+
+        <!-- Section 3 -->
+        <h2><span class="hl-pink">Honest Refinements</span></h2>
+
+        <p>
+          A couple of honest refinements. The hardware is not brutally unforgiving about perfect alignment. If your 32 values are contiguous but sit slightly off the box boundary, straddling two boxes, you pay for two transactions instead of one, a mild 2x penalty, not the catastrophic 32x of true scattering. So what really matters is locality, keeping the accesses clustered together, not obsessing over perfect alignment.
+        </p>
+
+        <p>
+          And there are cases where scattering seems unavoidable, like transposing a matrix, where turning rows into columns forces one side of the access to jump across memory. The trick there is to not fight memory directly. You read from slow memory in the nice coalesced direction, stash the tile into the fast on-chip scratchpad where scattered access carries almost no penalty, rearrange it there, and write back out in the coalesced direction. You route the unavoidable scatter through the fast memory that doesn't care about it.
+        </p>
+
+        <!-- Takeaway -->
+        <div style="margin-top: calc(var(--grid-size) * 2); margin-bottom: var(--grid-size); border-left: 3px solid var(--ink-red); padding-left: 20px;">
+          <h2 class="text-red" style="font-family: 'Patrick Hand', cursive; font-size: 32px; margin-bottom: var(--grid-size);">
+            ↳ The General Takeaway
+          </h2>
+          <p>
+            So the whole picture. The GPU delivers memory only in fixed 128-byte boxes, so the arrangement of your threads' addresses decides everything. When a bundle of 32 reads neighboring slots, it all fits in one box, one transaction, full efficiency. When they read scattered slots, it explodes into many transactions, each hauling a full box to use a sliver of it, and the real cost is the flood of transactions clogging the memory queue and stalling everyone. Keeping accesses contiguous, choosing a data layout where the value all threads want is packed together, and routing unavoidable scatter through the on-chip scratchpad are how you stay fast.
+          </p>
+
+          <p class="handwritten-highlight text-red" style="text-align: center; margin-top: var(--grid-size);">
+            The deepest lesson is one this whole world keeps teaching:<br>
+            <span class="hl-yellow" style="font-family: inherit; font-size: inherit;">Raw compute is rarely the bottleneck.</span><br>
+            It's whether the data arrives in one clean sweep of the conveyor belt, or in a thousand wasteful trips.
+          </p>
+        </div>
+
+        <!-- Navigation Links -->
+        <div class="nav-links">
+          <a href="chapter-28.html" class="nav-button">
+            <span class="nav-arrow">←</span>
+            <div class="nav-text">
+              <span class="nav-label">Previous</span>
+              <span class="nav-title">Why NVIDIA made CUDA asynchronous</span>
+            </div>
+          </a>
+          <a href="chapter-30.html" class="nav-button">
+            <div class="nav-text" style="text-align: right;">
+              <span class="nav-label">Next</span>
+              <span class="nav-title">How to pick a block size</span>
+            </div>
+            <span class="nav-arrow">→</span>
+          </a>
+        </div>
 
       </div>
     </div>
+
   </div>
 </body>
 </html>
