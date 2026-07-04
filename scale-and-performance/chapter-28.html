@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scale & Performance - Chapter 28: Why NVIDIA made CUDA asynchronous</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,400;0,700;1,400&family=Patrick+Hand&family=Space+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../style.css">
+  <script src="../script.js" defer></script>
+</head>
+<body>
+
+  <div class="notebook-wrapper">
+
+    <!-- Sidebar Navigation -->
+    <a href="chapter-27.html" class="nav-sidebar nav-prev">← Chapter 27: The step-by-step anatomy of a kernel launch</a>
+    <a href="chapter-29.html" class="nav-sidebar nav-next">Chapter 29: Why CUDA is asynchronous →</a>
+
+    <!-- Notebook Header -->
+    <div class="notebook-header">
+      <div class="date-row">
+        <span class="date-label">date</span>
+        <span class="date-value">16 / jul / 26</span>
+      </div>
+      <div class="days-row">
+        <span>m</span><span>t</span><span>w</span><span class="active">t</span><span>f</span><span>s</span><span>s</span>
+      </div>
+    </div>
+
+    <!-- Notebook Bordered Box -->
+    <div class="notebook-box">
+
+      <div class="notebook-title-row">
+        <span><span class="title-prefix">SCALE & PERFORMANCE — </span>Chapter 28</span>
+        <a href="../toc.html" class="index-link">index</a>
+        <a href="../index.html" class="index-link" style="margin-left: 12px;">home</a>
+      </div>
+
+      <div class="notebook-grid-content">
+
+        <!-- Title -->
+        <h1><span class="hl-yellow">Why NVIDIA made CUDA asynchronous</span></h1>
+        
+        <!-- Section 1 -->
+        <h2><span class="hl-blue">The Assembly Line</span></h2>
+
+        <p>
+          The obvious way to run a big job on the GPU is three steps in a row. Copy the data over, run the work, copy the results back. It works, and it wastes most of your machine. Because while the data is copying in, the compute cores sit idle. While the cores compute, the copy machinery sit idle. While the results copy out, everything else sits idle. You paid for all these parts and you use them one at a time, taking turns, like a factory where only one station is ever running. The fix is to stop thinking in steps and start thinking like an assembly line, and understanding how that works reveals a surprising limit hiding underneath the word <strong class="hl-pink">asynchronous</strong>.
+        </p>
+
+        <p>
+          Start with the hardware fact that makes it possible. A GPU does not have one worker, it has <strong class="hl-green">three independent ones that can all run at the same moment</strong>. There is an engine that copies data from the CPU's memory into the GPU's memory. There is the compute machinery that actually runs your work. And there is a third engine that copies results back from the GPU to the CPU. These are separate circuits. That means, at a single instant, data can be flowing in, other data can be computing, and still other results can be flowing out, all at once, if you arrange the work right.
+        </p>
+
+        <p>
+          So here's the objection. How can compute and copy-in run at the same time? Doesn't the work need its data before it can compute on it? Yes, but not the same data. The trick is to break the job into chunks. While the compute engine is chewing on chunk one, the copy-in engine is already fetching chunk two, and the copy-out engine is shipping chunk zero's finished result back home. Each chunk still flows through all three stages in order: copy in, then compute, then copy out. But at any given moment the three engines are each working on a different chunk. It's exactly a factory line. As one car moves to painting, the next moves to assembly, and a third rolls in the door. <span class="hl-blue">Nobody waits.</span>
+        </p>
+
+        <p>
+          And the payoff is large. In the naive take-turns version, if each of the three stages takes some time, every chunk costs you all three added together. In the overlapped line, once the pipeline is full, the three stages happen in parallel, so each chunk effectively costs only the single longest stage, not the sum. That is close to a three-fold speedup, and it comes not from faster math but purely from refusing to let expensive hardware sit idle.
+        </p>
+
+        <!-- Section 2 -->
+        <h2><span class="hl-pink">Fire, Forget, and the Saturated Queue</span></h2>
+
+        <p>
+          Now who orchestrates this? You might think the CPU has to babysit every handoff, but it doesn't, and this is where the earlier idea of fire-and-forget comes back. The CPU uses queues, in-order lines of GPU commands. It dumps a sequence of orders into a queue: copy this chunk, compute this chunk, copy this result back, and immediately moves on without waiting. It can throw dozens of commands into the queues in a flash, and the GPU drains them at its own pace, keeping all three engines fed. The CPU is a manager rapidly scribbling tickets, not a worker standing over each machine.
+        </p>
+
+        <p>
+          But here is the twist that catches people who fall in love with the word asynchronous. If the CPU never waits, does that mean a loop launching a billion pieces of work would never stall the CPU at all? It feels like it should. But no, the CPU will eventually freeze. Because the command queue is not infinite. It is a bounded buffer that holds only so many pending commands. The CPU can fire commands faster than the GPU can complete them, so the queue fills up. And the moment it is full, the next launch has nowhere to go, so it blocks, and the CPU stalls right there, waiting for the GPU to finish one item and free a slot. So asynchronous does not mean unlimited. It means the CPU runs ahead freely only up to the depth of the queue. <strong class="hl-red">Once the buffer saturates, the backpressure quietly forces the CPU and GPU back into lockstep.</strong> The decoupling is real, but bounded.
+        </p>
+
+        <!-- Section 3 -->
+        <h2><span class="hl-green">The Traps of Overlap</span></h2>
+
+        <p>
+          Two more traps decide whether the assembly line actually runs, and both surprise people. First, putting everything into a single queue does not overlap at all. A queue runs its commands strictly in order, so if you place copy-in, compute, and copy-out for a chunk in the same queue, the compute waits for the copy-in to finish, and the copy-out waits for the compute, right back to taking turns. To get true overlap you need several independent queues, one chunk in each, so the GPU's scheduler can run their commands on the three separate engines at the same time. <span class="hl-blue">Independent lines are what let independent engines run in parallel.</span>
+        </p>
+
+        <p>
+          Second, the copy engine can only run truly independently if the CPU's memory is locked in place. Normally the operating system is free to quietly relocate your data in memory whenever it likes. But the copy engine reaches directly into CPU memory on its own, without the CPU's help, and if the data moved out from under it, that would break. So for the async copy to work, you have to <strong class="hl-pink">pin the memory</strong>, telling the system to lock this data at a fixed spot and never move it. Only then can the copy engine pull from it directly and independently while the CPU goes off doing other things. Without pinning, the copy quietly falls back to the slow, blocking behavior and your overlap silently disappears.
+        </p>
+
+        <!-- Takeaway -->
+        <div style="margin-top: calc(var(--grid-size) * 2); margin-bottom: var(--grid-size); border-left: 3px solid var(--ink-red); padding-left: 20px;">
+          <h2 class="text-red" style="font-family: 'Patrick Hand', cursive; font-size: 32px; margin-bottom: var(--grid-size);">
+            ↳ The General Takeaway
+          </h2>
+          <p>
+            So the whole picture. A GPU has three independent engines: copy-in, compute, copy-out, and running a job as three sequential steps wastes two of them at all times. By splitting the work into chunks and pipelining them, you keep all three busy on different chunks at once, approaching a three-fold speedup from overlap alone. The CPU drives this by firing commands into queues and walking away, but asynchronous has a ceiling, because the queue is finite and a saturated queue forces the CPU to wait. And the overlap only materializes if you use separate queues for separate chunks and lock your memory in place so the copy engine can work on its own.
+          </p>
+
+          <p class="handwritten-highlight text-red" style="text-align: center; margin-top: var(--grid-size);">
+            The deepest lesson is one this whole world keeps teaching:<br>
+            <span class="hl-yellow" style="font-family: inherit; font-size: inherit;">Peak performance is rarely about the math being fast.</span><br>
+            It's about never letting any piece of expensive hardware stand idle while another one works.
+          </p>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
