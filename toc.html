@@ -1,14 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Before GPU Engineering - Home</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,400;0,700;1,400&family=Patrick+Hand&family=Space+Mono&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,400;0,700;1,400&family=Patrick+Hand&family=Space+Mono&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
   <div class="notebook-wrapper">
     <div class="notebook-header">
@@ -23,42 +27,57 @@
       </div>
       <div class="notebook-grid-content">
         <h1><span class="hl-yellow">Table of Contents</span></h1>
-        
+
         <div class="phase-container">
           <div class="phase-label">phase 1</div>
           <div class="phase-content">
             <h2><span class="hl-blue">Part 1: The Architecture</span></h2>
             <ul>
-              <li><a href="architecture/chapter-1.html" class="text-blue bold">Chapter 1: Why CPUs Can't Have 10,000 Cores</a></li>
-              <li><a href="architecture/chapter-2.html" class="text-blue bold">Chapter 2: Why a GPU multiplies matrices faster</a></li>
-              <li><a href="architecture/chapter-3.html" class="text-blue bold">Chapter 3: What "parallelizable" actually means</a></li>
+              <li><a href="architecture/chapter-1.html" class="text-blue bold">Chapter 1: Why CPUs Can't Have 10,000
+                  Cores</a></li>
+              <li><a href="architecture/chapter-2.html" class="text-blue bold">Chapter 2: Why a GPU multiplies matrices
+                  faster</a></li>
+              <li><a href="architecture/chapter-3.html" class="text-blue bold">Chapter 3: What "parallelizable" actually
+                  means</a></li>
             </ul>
 
             <br>
             <h2><span class="hl-pink">Part 2: Feeding the Beast</span></h2>
             <ul>
-              <li><a href="feeding-the-beast/chapter-4.html" class="text-blue bold">Chapter 4: Why GPUs care so much about memory bandwidth</a></li>
-              <li><a href="feeding-the-beast/chapter-5.html" class="text-blue bold">Chapter 5: Compute-bound vs. memory-bound</a></li>
-              <li><a href="feeding-the-beast/chapter-6.html" class="text-blue bold">Chapter 6: The GPU memory hierarchy</a></li>
+              <li><a href="feeding-the-beast/chapter-4.html" class="text-blue bold">Chapter 4: Why GPUs care so much
+                  about memory bandwidth</a></li>
+              <li><a href="feeding-the-beast/chapter-5.html" class="text-blue bold">Chapter 5: Compute-bound vs.
+                  memory-bound</a></li>
+              <li><a href="feeding-the-beast/chapter-6.html" class="text-blue bold">Chapter 6: The GPU memory
+                  hierarchy</a></li>
             </ul>
 
             <br>
             <h2><span class="hl-green">Part 3: Inside the Silicon</span></h2>
             <ul>
-              <li><a href="inside-the-silicon/chapter-7.html" class="text-blue bold">Chapter 7: What problem do warps solve?</a></li>
-              <li><a href="inside-the-silicon/chapter-8.html" class="text-blue bold">Chapter 8: Why branching is bad on GPUs</a></li>
-              <li><a href="inside-the-silicon/chapter-9.html" class="text-blue bold">Chapter 9: What is SIMT? (and how it differs from SIMD)</a></li>
-              <li><a href="inside-the-silicon/chapter-10.html" class="text-blue bold">Chapter 10: Why occupancy matters</a></li>
+              <li><a href="inside-the-silicon/chapter-7.html" class="text-blue bold">Chapter 7: What problem do warps
+                  solve?</a></li>
+              <li><a href="inside-the-silicon/chapter-8.html" class="text-blue bold">Chapter 8: Why branching is bad on
+                  GPUs</a></li>
+              <li><a href="inside-the-silicon/chapter-9.html" class="text-blue bold">Chapter 9: What is SIMT? (and how
+                  it differs from SIMD)</a></li>
+              <li><a href="inside-the-silicon/chapter-10.html" class="text-blue bold">Chapter 10: Why occupancy
+                  matters</a></li>
             </ul>
 
             <br>
             <h2><span class="hl-blue">Part 4: Putting it Together</span></h2>
             <ul>
-              <li><a href="putting-it-together/chapter-11.html" class="text-blue bold">Chapter 11: why ai runs on gpus but databases dont</a></li>
-              <li><a href="putting-it-together/chapter-12.html" class="text-blue bold">Chapter 12: What is latency hiding</a></li>
-              <li><a href="putting-it-together/chapter-13.html" class="text-blue bold">Chapter 13: what if a gpu had cpu-style caches</a></li>
-              <li><a href="putting-it-together/chapter-14.html" class="text-blue bold">Chapter 14: The memory wall & HBM</a></li>
-              <li><a href="putting-it-together/chapter-15.html" class="text-blue bold">Chapter 15: Designing an LLM training processor</a></li>
+              <li><a href="putting-it-together/chapter-11.html" class="text-blue bold">Chapter 11: why ai runs on gpus
+                  but databases dont</a></li>
+              <li><a href="putting-it-together/chapter-12.html" class="text-blue bold">Chapter 12: What is latency
+                  hiding</a></li>
+              <li><a href="putting-it-together/chapter-13.html" class="text-blue bold">Chapter 13: what if a gpu had
+                  cpu-style caches</a></li>
+              <li><a href="putting-it-together/chapter-14.html" class="text-blue bold">Chapter 14: The memory wall &
+                  HBM</a></li>
+              <li><a href="putting-it-together/chapter-15.html" class="text-blue bold">Chapter 15: Designing an LLM
+                  training processor</a></li>
             </ul>
           </div>
         </div>
@@ -69,40 +88,55 @@
           <div class="phase-content">
             <h2><span class="hl-yellow">The Translation Barrier</span></h2>
             <ul>
-              <li><a href="the-translation-barrier/chapter-16.html" class="text-blue bold">Chapter 16: Why C++ won't auto-compile to GPU</a></li>
-              <li><a href="the-translation-barrier/chapter-17.html" class="text-blue bold">Chapter 17: A kernel is not a function</a></li>
-              <li><a href="the-translation-barrier/chapter-18.html" class="text-blue bold">Chapter 18: Why thread indexing exists</a></li>
+              <li><a href="the-translation-barrier/chapter-16.html" class="text-blue bold">Chapter 16: Why C++ won't
+                  auto-compile to GPU</a></li>
+              <li><a href="the-translation-barrier/chapter-17.html" class="text-blue bold">Chapter 17: A kernel is not a
+                  function</a></li>
+              <li><a href="the-translation-barrier/chapter-18.html" class="text-blue bold">Chapter 18: Why thread
+                  indexing exists</a></li>
             </ul>
 
             <br>
             <h2><span class="hl-green">The Hardware Hierarchy</span></h2>
             <ul>
-              <li><a href="the-hardware-hierarchy/chapter-19.html" class="text-blue bold">Chapter 19: Why threads group into blocks</a></li>
-              <li><a href="the-hardware-hierarchy/chapter-20.html" class="text-blue bold">Chapter 20: Why shared memory is fast</a></li>
-              <li><a href="the-hardware-hierarchy/chapter-21.html" class="text-blue bold">Chapter 21: Why RAM isn't visible to the GPU</a></li>
-              <li><a href="the-hardware-hierarchy/chapter-22.html" class="text-blue bold">Chapter 22: Kernel launch overhead</a></li>
+              <li><a href="the-hardware-hierarchy/chapter-19.html" class="text-blue bold">Chapter 19: Why threads group
+                  into blocks</a></li>
+              <li><a href="the-hardware-hierarchy/chapter-20.html" class="text-blue bold">Chapter 20: Why shared memory
+                  is fast</a></li>
+              <li><a href="the-hardware-hierarchy/chapter-21.html" class="text-blue bold">Chapter 21: Why RAM isn't
+                  visible to the GPU</a></li>
+              <li><a href="the-hardware-hierarchy/chapter-22.html" class="text-blue bold">Chapter 22: Kernel launch
+                  overhead</a></li>
             </ul>
 
             <br>
             <h2><span class="hl-pink">Synchronization & Hazards</span></h2>
             <ul>
-              <li><a href="synchronization-hazards/chapter-23.html" class="text-blue bold">Chapter 23: What syncthreads protects</a></li>
-              <li><a href="synchronization-hazards/chapter-24.html" class="text-blue bold">Chapter 24: Why race conditions happen</a></li>
-              <li><a href="synchronization-hazards/chapter-25.html" class="text-blue bold">Chapter 25: What makes CUDA code "correct"</a></li>
+              <li><a href="synchronization-hazards/chapter-23.html" class="text-blue bold">Chapter 23: What syncthreads
+                  protects</a></li>
+              <li><a href="synchronization-hazards/chapter-24.html" class="text-blue bold">Chapter 24: Why race
+                  conditions happen</a></li>
+              <li><a href="synchronization-hazards/chapter-25.html" class="text-blue bold">Chapter 25: What makes CUDA
+                  code "correct"</a></li>
             </ul>
             <br>
             <h2><span class="hl-blue">Scale & Performance</span></h2>
             <ul>
-              <li><a href="scale-and-performance/chapter-26.html" class="text-blue bold">Chapter 26: Why the GPU context switch is free but CPU's is slow</a></li>
-              <li><a href="scale-and-performance/chapter-27.html" class="text-blue bold">Chapter 27: The step-by-step anatomy of a kernel launch</a></li>
-              <li><a href="scale-and-performance/chapter-28.html" class="text-blue bold">Chapter 28: Why NVIDIA made CUDA asynchronous</a></li>
-              <li><a href="scale-and-performance/chapter-29.html" class="text-blue bold">Chapter 29: Coalesced vs strided memory access</a></li>
-              <li><a href="scale-and-performance/chapter-30.html" class="text-blue bold">Chapter 30: How to pick a block size</a></li>
-              <li><a href="scale-and-performance/chapter-31.html" class="text-blue bold">Chapter 31: Coalesced vs strided memory</a></li>
-              <li><a href="scale-and-performance/chapter-32.html" class="text-blue bold">Chapter 32: Why GPU programs slow down</a></li>
-              <li><a href="scale-and-performance/chapter-33.html" class="text-blue bold">Chapter 33: CPU thread vs CUDA thread</a></li>
-              <li><a href="scale-and-performance/chapter-34.html" class="text-blue bold">Chapter 34: Embarrassingly parallel work</a></li>
-              <li><a href="scale-and-performance/chapter-35.html" class="text-blue bold">Chapter 35: When NOT to use a GPU</a></li>
+              <li><a href="scale-and-performance/chapter-26.html" class="text-blue bold">Chapter 26: Why the GPU context
+                  switch is free but CPU's is slow</a></li>
+              <li><a href="scale-and-performance/chapter-27.html" class="text-blue bold">Chapter 27: The step-by-step
+                  anatomy of a kernel launch</a></li>
+              <li><a href="scale-and-performance/chapter-28.html" class="text-blue bold">Chapter 28: Why NVIDIA made
+                  CUDA asynchronous</a></li>
+              <li><a href="scale-and-performance/chapter-29.html" class="text-blue bold">Chapter 29: Coalesced vs
+                  strided memory access</a></li>
+              <li><a href="scale-and-performance/chapter-30.html" class="text-blue bold">Chapter 30: Why GPU programs
+                  actually slow down</a></li>
+              <li><a href="scale-and-performance/chapter-31.html" class="text-blue bold">Chapter 31: Why matrix add
+                  scales but a linked list dies</a></li>
+              <li><a href="scale-and-performance/chapter-32.html" class="text-blue bold">Chapter 32: When NOT to use a
+                  GPU — and the reduction tree</a></li>
+
             </ul>
           </div>
         </div>
@@ -111,4 +145,5 @@
     </div>
   </div>
 </body>
+
 </html>

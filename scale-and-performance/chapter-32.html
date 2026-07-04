@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scale & Performance - Chapter '$i'</title>
+  <title>Scale & Performance - Chapter 32: When NOT to use a GPU — and the reduction tree</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,400;0,700;1,400&family=Patrick+Hand&family=Space+Mono&display=swap" rel="stylesheet">
@@ -15,17 +15,17 @@
   <div class="notebook-wrapper">
 
     <!-- Sidebar Navigation -->
-    <a href="#" class="nav-sidebar nav-prev">← Previous Chapter</a>
-    <a href="#" class="nav-sidebar nav-next">Next Chapter →</a>
+    <a href="chapter-31.html" class="nav-sidebar nav-prev">← Chapter 31: Why matrix add scales but a linked list dies</a>
+    <a href="chapter-33.html" class="nav-sidebar nav-next">Chapter 33: CPU thread vs CUDA thread →</a>
 
     <!-- Notebook Header -->
     <div class="notebook-header">
       <div class="date-row">
         <span class="date-label">date</span>
-        <span class="date-value"></span>
+        <span class="date-value">17 / jul / 26</span>
       </div>
       <div class="days-row">
-        <span>m</span><span>t</span><span>w</span><span class="active">t</span><span>f</span><span>s</span><span>s</span>
+        <span>m</span><span>t</span><span>w</span><span>t</span><span class="active">f</span><span>s</span><span>s</span>
       </div>
     </div>
 
@@ -33,7 +33,7 @@
     <div class="notebook-box">
 
       <div class="notebook-title-row">
-        <span><span class="title-prefix">SCALE & PERFORMANCE — </span>Chapter '$i'</span>
+        <span><span class="title-prefix">SCALE & PERFORMANCE — </span>Chapter 32</span>
         <a href="../toc.html" class="index-link">index</a>
         <a href="../index.html" class="index-link" style="margin-left: 12px;">home</a>
       </div>
@@ -41,14 +41,115 @@
       <div class="notebook-grid-content">
 
         <!-- Title -->
-        <h1><span class="hl-blue">Chapter '$i' Title Placeholder</span></h1>
+        <h1><span class="hl-yellow">When NOT to use a GPU — and the reduction tree</span></h1>
+        <span class="annotation">*worked out from first principles*</span>
+        
+        <!-- Section: Introduction -->
+        <p style="margin-top: calc(var(--grid-size) * 1.5);">
+          You have a million numbers and you want their sum. On a machine with thousands of cores, how fast can you go? The obvious answer is embarrassing, and fixing it reveals one of the most elegant patterns in all of parallel computing, the one hiding inside every sum, every average, every max, every dot product a neural network computes. It turns a job that looks stubbornly sequential into one that finishes in the blink of an eye. 
+        </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> The trick is to <strong class="hl-blue">stop adding and start running a tournament.</strong>
+        </p>
+
+        <!-- Section: The Trap -->
+        <h2><span class="hl-red">The One-Soldier Trap</span></h2>
         
         <p>
-          [Content goes here]
+          Start with the naive approach, because its trap is instructive. One thread, a loop, add each number to a running total, a million times over. It works. But on a chip with thousands of cores, exactly one is working and all the rest sit idle. <span class="hl-pink">You brought an army and sent one soldier.</span> The total time is a million sequential additions. A plain CPU would do this just as well, so the GPU bought you nothing.
         </p>
+
+        <!-- Section: The Toll Booth -->
+        <h2><span class="hl-pink">The One-Lane Toll Booth</span></h2>
+        
+        <p>
+          So the natural fix: unleash all the threads. Give every one of a million threads a number, and have them all add into a single shared total at once. And this is the trap that catches everyone, because it collapses instantly. 
+        </p>
+        <p>
+          That shared total can only be safely updated by one thread at a time, otherwise two threads read the same running value, both add their piece, and one update gets stomped. So the hardware forces them to take turns on that one location. A million threads now stand in a single-file line waiting to touch the total, one at a time. <strong class="hl-red">You launched a million workers and built them a one-lane toll booth.</strong> It's as serial as the loop, sometimes worse, because now there is the overhead of all that queueing on top.
+        </p>
+
+        <!-- Section: The Associative Property -->
+        <h2><span class="hl-blue">The Hidden Freedom</span></h2>
+        
+        <p>
+          So both extremes fail. One thread doing everything is too serial. A million threads fighting over one spot is also serial, just with a traffic jam. 
+        </p>
+        <p>
+          The way out comes from a simple property of addition that we normally never think about: <strong class="hl-blue">it doesn't care how you group it</strong>. Adding a to b then adding c gives the same answer as adding a to b and c to d separately and then combining. The order and grouping are free. That freedom is the whole key, because it means you don't have to funnel everything through one running total. You can add lots of independent pairs at the same time.
+        </p>
+
+        <!-- Section: The Tournament -->
+        <h2><span class="hl-green">The Parallel Tournament</span></h2>
+        
+        <p>
+          So picture a tournament instead. Round one, take the million numbers and pair them up, and every pair gets added by its own thread, all at the exact same instant. Half a million additions happen in parallel in the time of a single addition. Now you have half a million partial sums. 
+        </p>
+        <p>
+          Round two, pair those up and add them in parallel too, leaving a quarter million. Round three, an eighth. Each round halves how many numbers remain, and each round takes just one parallel step. Keep halving and you go from a million, to half a million, to a quarter million, and after only about twenty of these halvings you are down to the single final answer. 
+        </p>
+        <p>
+          That is the magic: <strong class="hl-green">a million numbers summed in roughly twenty parallel steps instead of a million sequential ones.</strong> Halving repeatedly reaches one absurdly fast, which is the same reason a knockout tournament of a thousand players crowns a champion in only ten rounds.
+        </p>
+
+        <!-- Section: Hardware Mapping -->
+        <h2><span class="hl-yellow">The Hardware Reality</span></h2>
+        
+        <p>
+          Now how this maps onto the real hardware, which adds one more clever layer. You don't run the whole million-wide tournament in one giant pool, because threads in different corners of the chip can't cheaply talk to each other. 
+        </p>
+        <p>
+          Instead you <span class="hl-yellow">break the million numbers into many small groups</span>, and each group runs its own little tournament entirely inside the fast on-chip scratchpad memory, where its threads can coordinate quickly. Each group chews its chunk down to a single partial sum. So if you had a million numbers in groups of a thousand, you now have a thousand partial sums, one from each group, computed fully in parallel across the chip.
+        </p>
+
+        <!-- Section: Combining the Rest -->
+        <h2><span class="hl-blue">Combining the Survivors</span></h2>
+        
+        <p>
+          And then the obvious question, how do you combine those last thousand partial sums? And here you have a choice that shows the pattern is recursive. 
+        </p>
+        <p>
+          You could have each group's one partial sum do a single safe add into a global total, and because there are now only a thousand of them instead of a million, the toll booth that was catastrophic before is now trivial, a thousand quick additions with almost no contention. Or, more elegantly, you take those thousand partial sums and run the exact same tournament on them again, a second pass that collapses a thousand to one. The reduction calls itself. Either way, the <strong class="hl-blue">million-way traffic jam became a thousand-way trickle</strong>, which is nothing.
+        </p>
+
+        <!-- Section: The Hidden Flaw -->
+        <h2><span class="hl-pink">The Folding Trick</span></h2>
+        
+        <p>
+          There is one subtlety worth knowing, because the naive tournament has a hidden flaw. If in each round you pair up neighbors right next to each other, then as rounds go on the active threads get scattered further and further apart, and this makes the bundles of threads execute inefficiently, with half a bundle working and half idle, and it also causes them to collide while accessing the fast memory. 
+        </p>
+        <p>
+          The fix is to pair threads that are far apart to begin with, <strong class="hl-pink">folding the data in half each round like folding a strip of paper</strong>, so the still-active threads always stay packed tightly together. Same tournament, same answer, but arranged so the hardware stays fully fed. This is the difference between a textbook reduction and a fast one.
+        </p>
+
+        <!-- Takeaway -->
+        <div style="margin-top: calc(var(--grid-size) * 2); margin-bottom: var(--grid-size); border-left: 3px solid var(--ink-red); padding-left: 20px;">
+          <h2 class="text-red" style="font-family: 'Patrick Hand', cursive; font-size: 32px; margin-bottom: var(--grid-size);">
+            ↳ The General Takeaway
+          </h2>
+
+          <p>
+            So the whole picture. Summing a pile of numbers looks inherently sequential, and both obvious approaches—one thread looping or a million threads brawling over one total—are serial disasters. 
+          </p>
+          
+          <p>
+            But because addition can be regrouped freely, you can run it as a tournament, <span class="hl-green">pairing and halving in parallel until one value remains</span>, turning a million steps into about twenty. On real hardware you do this in two tiers, each group reducing itself in fast local memory, then the handful of survivors combined cheaply, with the whole thing arranged so active threads stay clustered for the hardware's sake.
+          </p>
+
+          <p>
+            And the reason this matters far beyond summing is that this exact pattern—collapse many values into one through parallel pairing—is how a GPU computes <strong class="hl-blue">averages, maximums, dot products, and the normalizing totals inside the attention and softmax layers</strong> of every large model. 
+          </p>
+
+          <p class="handwritten-highlight text-red" style="text-align: center; margin-top: var(--grid-size);">
+            The humble sum, done right... <br>
+            <span class="hl-yellow" style="font-family: inherit; font-size: inherit;"><strong class="hl-red bold">is one of the deepest tricks the machine has.</strong></span>
+          </p>
+        </div>
 
       </div>
     </div>
+
   </div>
 </body>
 </html>
