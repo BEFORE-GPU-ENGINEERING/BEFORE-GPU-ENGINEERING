@@ -42,6 +42,7 @@
 
         <!-- Title -->
         <h1><span class="hl-yellow">Why NVIDIA made CUDA asynchronous</span></h1>
+        <span class="annotation">*worked out from first principles*</span>
         
         <!-- Section 1 -->
         <h2><span class="hl-blue">The Assembly Line</span></h2>
@@ -50,8 +51,8 @@
           The obvious way to run a big job on the GPU is three steps in a row. Copy the data over, run the work, copy the results back. It works, and it wastes most of your machine. Because while the data is copying in, the compute cores sit idle. While the cores compute, the copy machinery sit idle. While the results copy out, everything else sits idle. You paid for all these parts and you use them one at a time, taking turns, like a factory where only one station is ever running. The fix is to stop thinking in steps and start thinking like an assembly line, and understanding how that works reveals a surprising limit hiding underneath the word <strong class="hl-pink">asynchronous</strong>.
         </p>
 
-        <p>
-          Start with the hardware fact that makes it possible. A GPU does not have one worker, it has <strong class="hl-green">three independent ones that can all run at the same moment</strong>. There is an engine that copies data from the CPU's memory into the GPU's memory. There is the compute machinery that actually runs your work. And there is a third engine that copies results back from the GPU to the CPU. These are separate circuits. That means, at a single instant, data can be flowing in, other data can be computing, and still other results can be flowing out, all at once, if you arrange the work right.
+        <p class="text-blue">
+          <span class="arrow">↳</span> Start with the hardware fact that makes it possible. A GPU does not have one worker, it has <strong class="hl-green">three independent ones that can all run at the same moment</strong>. There is an engine that copies data from the CPU's memory into the GPU's memory. There is the compute machinery that actually runs your work. And there is a third engine that copies results back from the GPU to the CPU. These are separate circuits. That means, at a single instant, data can be flowing in, other data can be computing, and still other results can be flowing out, all at once, if you arrange the work right.
         </p>
 
         <p>
