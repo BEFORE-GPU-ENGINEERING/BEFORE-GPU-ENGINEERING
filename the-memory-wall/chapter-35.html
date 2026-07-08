@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Memory Wall - Chapter 35: The roofline model</title>
+  <title>The Memory Wall - Chapter 35: Two hard ceilings. One tells you to fix your math. The other says: fix your memory.</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,400;0,700;1,400&family=Patrick+Hand&family=Space+Mono&display=swap" rel="stylesheet">
@@ -15,8 +15,8 @@
   <div class="notebook-wrapper">
 
     <!-- Sidebar Navigation -->
-    <a href="chapter-34.html" class="nav-sidebar nav-prev">← Chapter 34: What is arithmetic intensity?</a>
-    <a href="#" class="nav-sidebar nav-next">Next Phase →</a>
+    <a href="chapter-34.html" class="nav-sidebar nav-prev">← Chapter 34: What is arithmetic intensity? The currency of GPU optimization.</a>
+    <a href="../the-register-physics/chapter-36.html" class="nav-sidebar nav-next">Chapter 36: Why not build a GPU entirely from registers? →</a>
 
     <!-- Notebook Header -->
     <div class="notebook-header">
@@ -41,11 +41,108 @@
       <div class="notebook-grid-content">
 
         <!-- Title -->
-        <h1><span class="hl-yellow">The roofline model</span></h1>
+        <h1><span class="hl-yellow" style="font-size: 0.9em;">Two hard ceilings. One tells you to fix your math. The other says: fix your memory.</span></h1>
+        <span class="annotation">*worked out from first principles*</span>
         
+        <!-- Section: Introduction -->
         <p style="margin-top: calc(var(--grid-size) * 1.5);">
-          <!-- Content goes here -->
+          When a language model writes you a paragraph, it generates it one word at a time, and each new word has to look back at every word that came before it. So a naive implementation has an ugly property. 
         </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> To produce the tenth word it reconsiders nine words, to produce the hundredth it reconsiders ninety-nine, and by the thousandth word it is <strong class="hl-red">redoing an enormous pile of work it already did</strong> on every previous step. The cost of writing a passage grows with the square of its length, and almost all of that work is repetition. 
+        </p>
+        <p>
+          The fix, called the KV cache, is what makes chatbots fast enough to exist. But the fix creates a new monster, one that quietly <strong class="hl-pink">devours your memory</strong> and becomes the real limit on how these models are served.
+        </p>
+
+        <!-- Section: The Repetition -->
+        <h2><span class="hl-yellow">The Repetition Waste</span></h2>
+        
+        <p>
+          Start with the waste, because the cache only makes sense once you feel the pain it's removing. To decide how much attention a new word pays to the earlier words, the model computes two things from each earlier word, call them a <span class="hl-yellow">key and a value</span>, a kind of summary the new word searches against and pulls information from. 
+        </p>
+        <p>
+          Here is the crucial fact: the key and value for a given word <strong class="hl-blue">never change</strong>. The summary of word five is the same whether you are generating word six or word six hundred. 
+        </p>
+        <p>
+          And yet the naive approach recomputes the keys and values for every earlier word, from scratch, every single time it generates a new word. It is like rereading the entire book from page one every time you want to write the next sentence. The information didn't change, but you paid to regenerate it anyway, over and over.
+        </p>
+
+        <!-- Section: The KV Cache Fix -->
+        <h2><span class="hl-green">The Embarrassingly Obvious Fix</span></h2>
+        
+        <p>
+          So the fix is almost embarrassingly obvious once you see the waste. Why recompute something that never changes? Compute each word's key and value once, the moment that word first appears, and <strong class="hl-green">stash them in a memory bank.</strong> 
+        </p>
+        <p>
+          Then when you generate the next word, you don't recompute anything for the past, you just read the stored keys and values straight from the bank and add the one new word's entry to it. Generating each word goes from redoing all the past work to doing a fixed small amount of new work plus a lookup. The quadratic explosion collapses into something that scales gently. This stored bank of keys and values is the <strong class="hl-green">KV cache</strong>, and it is the single trick that turns a model that would crawl into one that responds quickly.
+        </p>
+
+        <!-- Section: The Memory Tradeoff -->
+        <h2><span class="hl-pink">The Memory Tradeoff</span></h2>
+        
+        <p>
+          Now the question that reveals the deeper tradeoff. This sounds like a pure win, so where is the catch? The catch is that you are making the classic bargain that runs through all of computing: <span class="hl-pink">you traded recomputation for storage.</span> 
+        </p>
+        <p>
+          You are no longer wasting compute redoing the past, but now you have to hold all those keys and values in memory for every word in the conversation, and that memory bank grows relentlessly. Every new word adds another entry that must be kept for the rest of the conversation. The longer the conversation, the bigger the cache. And it is not small, because the model stores a key and value at every one of its many internal layers, for every word. So this cache balloons into one of the largest consumers of the GPU's precious memory, often dwarfing even the model itself for long conversations.
+        </p>
+
+        <!-- Section: The Bandwidth Burden -->
+        <h2><span class="hl-blue">The Bandwidth Burden</span></h2>
+        
+        <p>
+          And this is where it ties back to the deepest problem of running these models. Remember that generating text is already <strong class="hl-blue">starved for memory bandwidth</strong>, because each word requires sweeping the model's parameters out of memory. 
+        </p>
+        <p>
+          The KV cache makes this worse in a specific way, because now, on top of reading the parameters, every new word must also read the entire growing cache of all previous words' keys and values. The longer the conversation gets, the more cache there is to haul out of memory for each single word. So the cache that saved you from recomputation now becomes a memory-bandwidth burden of its own, and eventually the dominant one. <span class="hl-red">You escaped quadratic compute and landed in a growing memory problem instead.</span>
+        </p>
+
+        <!-- Section: The Capacity Wall -->
+        <h2><span class="hl-red">The Capacity Wall</span></h2>
+        
+        <p>
+          Worse, the cache creates a <strong class="hl-red">hard capacity wall.</strong> The GPU has a fixed amount of memory. The model parameters take a big fixed chunk of it, and whatever is left over is all you have for KV caches. 
+        </p>
+        <p>
+          Since every active conversation needs its own growing cache, the amount of memory left is what decides how many users you can serve at once and how long their conversations can run before you run out. So this cache is not just a speed detail, it directly sets the economics of serving a model: how many people fit on one GPU, how long their contexts can be. Run out of cache room and you must either cut off conversations or turn users away.
+        </p>
+
+        <!-- Section: Taming the Cache -->
+        <h2><span class="hl-yellow">Taming the Cache</span></h2>
+        
+        <p>
+          Which is why a lot of clever engineering exists purely to tame this cache. The naive way of storing it wastes a great deal of room by reserving the maximum possible space for every conversation up front, most of which sits empty. 
+        </p>
+        <p>
+          Smarter systems store the cache in small pages allocated only as a conversation actually grows, packing many users efficiently into the same memory, much like an operating system manages memory for many programs. Other techniques shrink each entry by storing it in a compressed, lower-precision form, or let several of the model's attention streams share one set of stored keys and values instead of each keeping its own, cutting the cache size by a large factor. All of these exist for one reason: the KV cache is the scarce resource, and <span class="hl-yellow">squeezing more conversations into limited memory is the name of the game.</span>
+        </p>
+
+        <!-- Takeaway -->
+        <div style="margin-top: calc(var(--grid-size) * 2); margin-bottom: var(--grid-size); border-left: 3px solid var(--ink-red); padding-left: 20px;">
+          <h2 class="text-red" style="font-family: 'Patrick Hand', cursive; font-size: 32px; margin-bottom: var(--grid-size);">
+            ↳ The General Takeaway
+          </h2>
+
+          <p>
+            So the whole picture. Generating text naively redoes all the past work for every new word, an explosion that grows with the square of the length. 
+          </p>
+          
+          <p>
+            The KV cache fixes this by <strong class="hl-green">storing each word's unchanging keys and values once and reusing them</strong>, collapsing the waste into gentle, steady work. But it trades that saved compute for a memory bank that grows without pause, consuming enormous amounts of the GPU's memory, adding its own ever-heavier load on memory bandwidth, and setting a hard ceiling on how many users and how long a context you can serve. 
+          </p>
+
+          <p>
+            The deepest lesson is the one this hardware keeps teaching in every context...
+          </p>
+
+          <p class="handwritten-highlight text-red" style="text-align: center; margin-top: var(--grid-size);">
+            You rarely get something for free.<br>
+            <span class="hl-yellow" style="font-family: inherit; font-size: inherit;"><strong class="hl-red bold">You trade compute for memory, memory for bandwidth...</strong></span><br>
+            ...and the art of running fast is choosing which to spend, and which to hoard.
+          </p>
+        </div>
 
       </div>
     </div>

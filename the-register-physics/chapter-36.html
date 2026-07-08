@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Register Physics - Chapter 36: Why not build a GPU entirely from registers?</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,400;0,700;1,400&family=Patrick+Hand&family=Space+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../style.css">
+  <script src="../script.js" defer></script>
+</head>
+<body>
+
+  <div class="notebook-wrapper">
+
+    <!-- Sidebar Navigation -->
+    <a href="../the-memory-wall/chapter-35.html" class="nav-sidebar nav-prev">← Chapter 35: Two hard ceilings. One tells you to fix your math. The other says: fix your memory.</a>
+    <a href="chapter-37.html" class="nav-sidebar nav-next">Chapter 37: Where should data live? →</a>
+
+    <!-- Notebook Header -->
+    <div class="notebook-header">
+      <div class="date-row">
+        <span class="date-label">date</span>
+        <span class="date-value">17 / jul / 26</span>
+      </div>
+      <div class="days-row">
+        <span>m</span><span>t</span><span>w</span><span>t</span><span class="active">f</span><span>s</span><span>s</span>
+      </div>
+    </div>
+
+    <!-- Notebook Bordered Box -->
+    <div class="notebook-box">
+
+      <div class="notebook-title-row">
+        <span><span class="title-prefix">THE REGISTER PHYSICS — </span>Chapter 36</span>
+        <a href="../toc.html" class="index-link">index</a>
+        <a href="../index.html" class="index-link" style="margin-left: 12px;">home</a>
+      </div>
+
+      <div class="notebook-grid-content">
+
+        <!-- Title -->
+        <h1><span class="hl-yellow" style="font-size: 0.9em;">Why not build a GPU entirely from registers?</span></h1>
+        <span class="annotation">*the art of being approximately right*</span>
+        
+        <!-- Section: Introduction -->
+        <p style="margin-top: calc(var(--grid-size) * 1.5);">
+          A large language model is, underneath everything, a gigantic pile of numbers. Billions of them, the learned weights that encode what the model knows. And normally each of those numbers is stored in a fairly precise form, taking a certain chunk of memory each. 
+        </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> <strong class="hl-red">Quantization</strong> is the trick of storing each number in a cruder, smaller form, using far fewer bits, and it is one of the most important techniques in making these models runnable at all. 
+        </p>
+        <p>
+          It can shrink a model to a fraction of its size and make it several times faster, and the surprising part is that the model still works almost as well. Understanding why you can be so sloppy with the numbers and get away with it teaches you something deep about both neural networks and the hardware they run on.
+        </p>
+
+        <!-- Section: The Bottleneck Target -->
+        <h2><span class="hl-yellow">The Target: Moving Bytes</span></h2>
+        
+        <p>
+          Start with why you would want to be cruder on purpose. Everything about running these models keeps coming back to one bottleneck: <span class="hl-yellow">moving data.</span> The weights have to be hauled out of memory to do any computation, and there are billions of them, so the sheer volume of bytes moved dominates everything. 
+        </p>
+        <p>
+          Now suppose each number, instead of taking a full precise slot, took a quarter of that. Instantly the whole model takes a quarter of the memory to store, and more importantly, a quarter of the bytes to move for every operation. Since moving bytes was the thing choking performance, cutting the bytes by three quarters is a massive win, both in speed and in how much model you can fit on a given chip. Quantization attacks the exact resource that everything else is starved for.
+        </p>
+
+        <!-- Section: Why It Works -->
+        <h2><span class="hl-green">Why the Model Doesn't Break</span></h2>
+        
+        <p>
+          So the obvious objection, and it's a good one. These numbers were presumably precise for a reason. If you chop them down to a crude approximation, surely you wreck the model. Round off billions of numbers and the errors should pile up into garbage.
+        </p>
+        <p>
+          Here is why they don't, and it's genuinely surprising. A neural network is not a delicate calculation where a tiny error in one place ruins the answer. It is a <strong class="hl-green">vast, redundant web</strong> where the final result comes from combining an enormous number of these values, and the meaning is spread across many of them rather than resting on any single precise one. 
+        </p>
+        <p>
+          So when you round each weight a little, the errors are small, they point in random directions, and they largely cancel out when combined across billions of terms. The network was trained to be robust to noise in the first place, so a bit of extra rounding noise is just something it shrugs off. It is like a photograph made of millions of pixels: you can reduce the number of distinct colors each pixel uses quite aggressively and the picture still looks fine, because the image lives in the whole, not in the exact shade of any one dot.
+        </p>
+
+        <!-- Section: How It Works -->
+        <h2><span class="hl-pink">How to Crush a Number</span></h2>
+        
+        <p>
+          So how do you actually crush a number into fewer bits? The core idea is that you rarely need the full range that a precise number can represent. A given batch of weights might all live in some narrow band of values. 
+        </p>
+        <p>
+          So instead of storing each one in an expensive general form, you find the range that batch actually spans, and you carve that range into a small number of evenly spaced levels, and store each weight as just which level it is closest to. With only a handful of bits you get a modest number of levels, and you <span class="hl-pink">snap each true value to the nearest one.</span> You also remember the scale, the mapping from levels back to real values, so you can approximately reconstruct the originals when you need to compute. Crude, but for a robust network, close enough.
+        </p>
+
+        <!-- Section: The Limits and Outliers -->
+        <h2><span class="hl-blue">The Limits and the Outliers</span></h2>
+        
+        <p>
+          Now the question that separates a toy understanding from a real one. If fewer bits is cheaper, why not go absurdly low, why not one or two bits per number?
+        </p>
+        <p>
+          Because two things break as you get cruder. The first is that with too few levels, the gaps between them get wide, and the rounding error on each number grows large enough that it stops being harmless noise and starts genuinely distorting what the model knows. There is a floor below which the approximation is too coarse and quality falls off a cliff. 
+        </p>
+        <p>
+          The second problem is subtler and is the real villain: <strong class="hl-blue">outliers.</strong> Most of the weights huddle in a narrow range, but a few are dramatically larger. And if you stretch your small set of levels to cover those rare giant values, then all the normal values get crammed into just a couple of levels near zero, losing almost all their distinction. One extreme value ruins the resolution for everyone else. Handling these outliers gracefully, by giving them special treatment or storing different parts of the model at different crudeness, is most of what makes modern quantization actually work rather than fall apart.
+        </p>
+
+        <!-- Takeaway -->
+        <div style="margin-top: calc(var(--grid-size) * 2); margin-bottom: var(--grid-size); border-left: 3px solid var(--ink-red); padding-left: 20px;">
+          <h2 class="text-red" style="font-family: 'Patrick Hand', cursive; font-size: 32px; margin-bottom: var(--grid-size);">
+            ↳ The General Takeaway
+          </h2>
+
+          <p>
+            So the whole picture. A model is billions of numbers, and storing and moving them at full precision is exactly the bottleneck that starves the hardware. Quantization stores each number in a far cruder, smaller form, slashing both the memory it occupies and the bytes that must be moved, which is a direct hit on the real limiter. 
+          </p>
+          
+          <p>
+            It works despite sounding reckless because a neural network <strong class="hl-pink">spreads its meaning across so many redundant values</strong> that small rounding errors cancel out rather than accumulate. The craft is in choosing how crude to go, and in taming the rare outlier values that would otherwise wreck the whole scheme. 
+          </p>
+
+          <p>
+            And the lesson underneath is a quietly profound one...
+          </p>
+
+          <p class="handwritten-highlight text-red" style="text-align: center; margin-top: var(--grid-size);">
+            Precision is not free, and a great deal of it is often wasted.<br>
+            <span class="hl-yellow" style="font-family: inherit; font-size: inherit;"><strong class="hl-red bold">The skill... is knowing exactly how approximately right you can afford to be.</strong></span><br>
+            Spend your precious bits only where they actually matter.
+          </p>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

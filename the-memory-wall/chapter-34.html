@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Memory Wall - Chapter 34: What is arithmetic intensity?</title>
+  <title>The Memory Wall - Chapter 34: What is arithmetic intensity? The currency of GPU optimization.</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,400;0,700;1,400&family=Patrick+Hand&family=Space+Mono&display=swap" rel="stylesheet">
@@ -15,7 +15,7 @@
   <div class="notebook-wrapper">
 
     <!-- Sidebar Navigation -->
-    <a href="chapter-33.html" class="nav-sidebar nav-prev">← Chapter 33: ALUs aren't the bottleneck</a>
+    <a href="chapter-33.html" class="nav-sidebar nav-prev">← Chapter 33: Your ALUs are idle. Memory is the real bottleneck.</a>
     <a href="chapter-35.html" class="nav-sidebar nav-next">Chapter 35: The roofline model →</a>
 
     <!-- Notebook Header -->
@@ -41,11 +41,112 @@
       <div class="notebook-grid-content">
 
         <!-- Title -->
-        <h1><span class="hl-yellow">What is arithmetic intensity?</span></h1>
+        <h1><span class="hl-yellow">What is arithmetic intensity? The currency of GPU optimization.</span></h1>
+        <span class="annotation">*worked out from first principles*</span>
         
+        <!-- Section: Introduction -->
         <p style="margin-top: calc(var(--grid-size) * 1.5);">
-          <!-- Content goes here -->
+          Attention is the operation at the heart of every large language model, and for years the way everyone computed it was quietly wasting almost all of the GPU. The fix, <strong class="hl-red">flash attention</strong>, made models train and run several times faster, and it did it without changing the math at all, without approximating anything. 
         </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> It produces the exact same answer as before. The entire speedup comes from one idea: <strong class="hl-blue">never building a giant thing you were about to throw away.</strong> Understanding how it works teaches you the single most important lesson in GPU performance: that moving data, not doing math, is what costs you.
+        </p>
+
+        <!-- Section: The Conceptual Goal -->
+        <h2><span class="hl-yellow">The Conceptual Goal</span></h2>
+        
+        <p>
+          Start with what attention actually needs to do. Every word in a sequence has to look at every other word to decide how much to pay attention to it. So if you have a sequence of some length, you compute a score between every pair of words. 
+        </p>
+        <p>
+          That gives you a big square grid of scores, every word against every word. Then you <span class="hl-yellow">soften those scores into weights that sum to one</span>, and use them to produce each word's output. Conceptually simple: a grid of pairwise scores, softened, then applied.
+        </p>
+
+        <!-- Section: The Naive Trap -->
+        <h2><span class="hl-pink">The Naive Trap</span></h2>
+        
+        <p>
+          Now the trap in how this was done naively. That square grid of scores is enormous. For a long sequence, the number of pairs grows with the square of the length, so doubling the sequence quadruples the grid. 
+        </p>
+        <p>
+          And the old approach built that entire grid, wrote it all out to the GPU's main memory, then read it all back to soften it, wrote it out again, then read it back once more to apply it. The grid was far too big to keep in the small fast memory near the cores, so it lived in the <strong class="hl-pink">big slow memory</strong>, and the algorithm shuttled the whole massive thing back and forth several times.
+        </p>
+
+        <!-- Section: The Memory Catastrophe -->
+        <h2><span class="hl-red">The Memory Catastrophe</span></h2>
+        
+        <p>
+          And here is why that is a catastrophe, tying back to how a GPU really works. The cores can do the math almost instantly. The slow part is fetching from that main memory. 
+        </p>
+        <p>
+          So an algorithm that writes and reads a giant grid several times spends nearly all its time <span class="hl-red">waiting on memory traffic, with the cores idle.</span> The actual computation, the scoring and softening, is trivial. The cost is entirely in hauling that enormous grid in and out of slow memory over and over. The operation was completely memory-bound, bottlenecked on data movement, and the expensive math units mostly sat watching.
+        </p>
+
+        <!-- Section: The Obstacle -->
+        <h2><span class="hl-blue">The Obstacle to Going Fast</span></h2>
+        
+        <p>
+          So the natural question. If the giant grid is the problem, can we just not store it? Compute it in small pieces in the fast memory near the cores, use each piece immediately, and never write the whole thing to slow memory at all?
+        </p>
+        <p>
+          That is exactly the idea, and the obstacle is the softening step. Softening scores into weights that sum to one normally needs the whole row of scores at once, because to make them sum to one you have to divide by their total, and you cannot know the total until you have seen every score in the row. So it seems like you are forced to compute and hold the entire row, the entire grid, before you can soften anything. <strong class="hl-blue">That requirement is what chained everyone to building the full grid.</strong>
+        </p>
+
+        <!-- Section: The Flash Trick -->
+        <h2><span class="hl-green">The Running-Total Trick</span></h2>
+        
+        <p>
+          Flash attention breaks that chain with a running-total trick. Instead of waiting to see the whole row, it processes the row in small blocks that fit in the fast memory. It keeps a running summary as it goes, a partial result and a little bookkeeping about the totals so far. 
+        </p>
+        <p>
+          When the next block arrives, it gently corrects the running result to account for the new information, <span class="hl-green">rescaling what it had so far so that everything stays consistent</span>, as if it had seen those new scores all along. Block by block it folds in each piece, continuously adjusting, and when the last block is done, the running result is exactly, not approximately, what you would have gotten from the whole row at once. The softening happened incrementally, so the full row never needed to exist in one place.
+        </p>
+
+        <!-- Section: The New Shape -->
+        <h2><span class="hl-yellow">The Matrix That Never Existed</span></h2>
+        
+        <p>
+          With that unlocked, the whole operation changes character. You load a small block of words into the fast memory, compute their scores right there, fold them into the running result with the trick, and discard them. Then the next block, and the next. 
+        </p>
+        <p>
+          The giant grid is never written to slow memory, never even fully assembled. It exists only as <strong class="hl-yellow">tiny transient pieces in fast memory, each used and thrown away.</strong> The several round trips of a huge grid through slow memory collapse into essentially one pass over the actual inputs. The memory traffic plummets, and since memory traffic was the bottleneck, the whole thing speeds up several times over.
+        </p>
+
+        <!-- Section: Recompute vs Fetch -->
+        <h2><span class="hl-pink">Recompute vs Fetch</span></h2>
+        
+        <p>
+          Now the objection that reveals the deeper principle. By not storing the grid, you sometimes have to recompute pieces of it later, for instance during the training backward pass, where the old method would have just reread the stored grid. So flash attention deliberately does more math, redoing some scoring rather than saving it. How is doing extra work faster?
+        </p>
+        <p>
+          Because on a modern GPU, <strong class="hl-pink">math is nearly free and memory movement is expensive.</strong> Recomputing a block of scores in fast memory costs a handful of cheap operations. Rereading that block from slow memory would cost a long, expensive trip that stalls the cores. So trading a big slow memory read for some extra fast math is a winning trade, even though it sounds backwards. This is the counterintuitive truth at the center of modern GPU performance: it is often faster to recompute a value than to store it and fetch it back later. <strong class="hl-red">Cheap math beats expensive memory.</strong> Flash attention is that principle taken to its logical extreme.
+        </p>
+
+        <!-- Takeaway -->
+        <div style="margin-top: calc(var(--grid-size) * 2); margin-bottom: var(--grid-size); border-left: 3px solid var(--ink-red); padding-left: 20px;">
+          <h2 class="text-red" style="font-family: 'Patrick Hand', cursive; font-size: 32px; margin-bottom: var(--grid-size);">
+            ↳ The General Takeaway
+          </h2>
+
+          <p>
+            So the whole picture. Attention naively builds a giant grid of every word against every word, shuttling it through slow memory several times, which leaves the fast cores starving and makes the whole operation memory-bound. 
+          </p>
+          
+          <p>
+            Flash attention refuses to build that grid, instead streaming through small blocks in fast memory and folding them into a running result with a trick that lets softening happen incrementally, so the full grid never exists. It even chooses to recompute pieces rather than store them, because <strong class="hl-pink">doing extra cheap math is faster than paying for slow memory.</strong> 
+          </p>
+
+          <p>
+            The result is the identical answer, several times faster, purely from moving less data. And that is the lesson that outlives this one algorithm...
+          </p>
+
+          <p class="handwritten-highlight text-red" style="text-align: center; margin-top: var(--grid-size);">
+            On a GPU the way to go fast is almost never to compute less.<br>
+            <span class="hl-yellow" style="font-family: inherit; font-size: inherit;"><strong class="hl-red bold">It is to touch slow memory less...</strong></span><br>
+            ...even if you have to compute more to get there.
+          </p>
+        </div>
 
       </div>
     </div>
