@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Register Physics - Chapter 37: Where should data live?</title>
+  <title>The Register Physics - Chapter 37: Where should data live? The register-occupancy tradeoff.</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,400;0,700;1,400&family=Patrick+Hand&family=Space+Mono&display=swap" rel="stylesheet">
@@ -15,8 +15,8 @@
   <div class="notebook-wrapper">
 
     <!-- Sidebar Navigation -->
-    <a href="chapter-36.html" class="nav-sidebar nav-prev">← Chapter 36: Why not 40GB of registers?</a>
-    <a href="chapter-38.html" class="nav-sidebar nav-next">Chapter 38: What is occupancy, really? →</a>
+    <a href="chapter-36.html" class="nav-sidebar nav-prev">← Chapter 36: Why not build a GPU entirely from registers?</a>
+    <a href="chapter-38.html" class="nav-sidebar nav-next">Chapter 38: What is occupancy, really? It's a ratio, not a count — and 100% is not the goal. →</a>
 
     <!-- Notebook Header -->
     <div class="notebook-header">
@@ -41,11 +41,115 @@
       <div class="notebook-grid-content">
 
         <!-- Title -->
-        <h1><span class="hl-yellow">Where should data live?</span></h1>
+        <h1><span class="hl-yellow" style="font-size: 0.9em;">Where should data live? The register-occupancy tradeoff.</span></h1>
+        <span class="annotation">*the art of using fewer bits*</span>
         
+        <!-- Section: Introduction -->
         <p style="margin-top: calc(var(--grid-size) * 1.5);">
-          <!-- Content goes here -->
+          A large model is basically a gigantic pile of numbers, billions of them, and the single biggest problem in running one is that you constantly have to haul that pile out of memory. 
         </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> So here is a question that sounds almost too cheap to work: <strong class="hl-red">what if you just stored each number less precisely, using fewer digits, so the whole pile got smaller?</strong>
+        </p>
+        
+        <p>
+          It turns out this one move, called quantization, can shrink a model to a quarter of its size and make it several times faster, often while barely changing its answers at all. Understanding why such a crude-sounding trick works, and where it bites back, is one of the most practical things you can know about running these models.
+        </p>
+
+        <!-- Section: The Bottleneck -->
+        <h2><span class="hl-yellow">The Bottleneck: Moving Bytes</span></h2>
+        
+        <p>
+          Start with why the size of the pile is the whole ballgame. Generating text with a model means, for every single word, sweeping its entire set of numbers out of memory and into the compute cores. The math on each number is quick, so the cores spend almost all their time just waiting for that flood of numbers to arrive from memory. The model is bottlenecked on data movement, not on arithmetic. 
+        </p>
+        <p>
+          And that changes everything, because it means the way to go faster is not to compute less, it's to move fewer bytes. If each number were physically smaller, the flood would be lighter, and the whole thing would speed up. That is the entire motivation: <span class="hl-yellow">smaller numbers, less to haul, faster generation.</span>
+        </p>
+
+        <!-- Section: What is Quantization -->
+        <h2><span class="hl-pink">Squeezing the Bits</span></h2>
+        
+        <p>
+          So what does storing a number less precisely actually mean? Every number in the model is normally stored with a lot of bits, giving it many digits of precision, far more than the model actually needs. 
+        </p>
+        <p>
+          Quantization takes those numbers and squeezes each one into far fewer bits, keeping only a coarse approximation. Instead of knowing a value is 0.7183926, you keep just enough to know it's about 0.72. You lose the fine detail, but you keep the rough magnitude. Do that to every number in the model and the whole pile shrinks dramatically, maybe to a quarter of its original size, sometimes far less.
+        </p>
+
+        <!-- Section: Noise Tolerance -->
+        <h2><span class="hl-green">Why it Doesn't Break</span></h2>
+        
+        <p>
+          Now the obvious objection, and it's a good one. These are the numbers that define what the model knows. How on earth can you throw away most of their precision and still get sensible output? Wouldn't mangling billions of values into blurry approximations wreck everything?
+        </p>
+        <p>
+          The answer is one of the pleasant surprises of neural networks: they are deeply tolerant of noise. A model does not depend on any single number being exact. <strong class="hl-green">Its output emerges from billions of values voting together</strong>, and that collective is robust; small errors in individual numbers mostly cancel out or wash away in the aggregate. 
+        </p>
+        <p>
+          The model was also trained with all sorts of randomness and imprecision, so it never relied on razor-sharp values to begin with. So rounding each number to a coarser version introduces a little fuzz, but the overall behavior barely shifts. It's like a photograph: you can throw away a huge amount of the fine data and compress the image many times over, and it still looks essentially the same to your eye. The model, like your eye, works on the overall picture, not the last decimal place.
+        </p>
+
+        <!-- Section: The Mapping Trick -->
+        <h2><span class="hl-blue">The Mapping Trick</span></h2>
+        
+        <p>
+          So how do you actually squeeze a wide range of values into just a few bits? The trick is a simple mapping. You look at the range of numbers you need to represent, find the largest and smallest, and then stretch a small set of coarse steps across that range, remembering a single scaling factor that tells you how to translate back. 
+        </p>
+        <p>
+          So instead of storing each full precise number, you store which coarse step it's nearest to—a tiny value—plus one shared scaling number for the whole group. To use them, you multiply back by the scale to recover an approximation. It's a compression scheme, trading the exactness of each value for the compactness of the whole set.
+        </p>
+
+        <!-- Section: The Double Payoff -->
+        <h2><span class="hl-yellow">The Double Payoff</span></h2>
+        
+        <p>
+          And the payoff hits twice, which is what makes it so worthwhile. First, the model takes far less memory to store, so you can fit a bigger model on a given GPU, or fit more users' worth of working memory alongside it. 
+        </p>
+        <p>
+          Second, and often more important, every number you fetch from memory is now physically smaller, so you move far fewer bytes per word generated, and since data movement was the bottleneck, the whole thing runs several times faster. You attacked both the capacity problem and the speed problem with a single change. This is why quantization is everywhere in practice: it is one of the highest-leverage moves available.
+        </p>
+
+        <!-- Section: The Catch -->
+        <h2><span class="hl-red">The Catch: Outliers</span></h2>
+        
+        <p>
+          Now the catch, because there is always one. The objection that it might wreck the model is mostly wrong, but not entirely. The danger lives in the extremes. 
+        </p>
+        <p>
+          Most of a model's numbers cluster in a modest range, but a few are wild outliers, unusually large values that matter a lot. And here is the problem: when you stretch your coarse steps across a range that has to include those rare giant values, the steps get spread so wide that all the normal clustered values get crushed together into almost nothing, losing the fine distinctions that actually carried the meaning. 
+        </p>
+        <p>
+          So a naive squeeze can be dominated by a handful of outliers and destroy the precision of everything else. The more aggressively you quantize, the fewer bits you keep, the more this bites. Push it too far and the model does start to degrade, getting subtly dumber, then noticeably wrong.
+        </p>
+        <p>
+          Which is why real quantization is careful rather than crude. You handle those outliers specially instead of letting them ruin the range for everyone. You quantize in small groups so a wild value only spoils its own little neighborhood rather than the whole model. You keep the few genuinely sensitive parts of the model at higher precision while squeezing the rest hard, spending your bits where they matter. And you choose how far to push based on how much quality you can afford to lose. It's a dial, not a switch, and the skill is in turning it as far as you can before the answers start to suffer.
+        </p>
+
+        <!-- Takeaway -->
+        <div style="margin-top: calc(var(--grid-size) * 2); margin-bottom: var(--grid-size); border-left: 3px solid var(--ink-red); padding-left: 20px;">
+          <h2 class="text-red" style="font-family: 'Patrick Hand', cursive; font-size: 32px; margin-bottom: var(--grid-size);">
+            ↳ The General Takeaway
+          </h2>
+
+          <p>
+            So the whole picture. A model is a mountain of numbers, and running it is bottlenecked on dragging that mountain through memory, so making each number smaller directly buys speed and capacity. 
+          </p>
+          
+          <p>
+            Quantization does exactly that, storing each value coarsely instead of precisely, and it works because neural networks are noise-tolerant, leaning on the collective of billions of values rather than the exactness of any one. The savings are double: less memory used and fewer bytes moved, so a model can both fit better and run faster. 
+          </p>
+
+          <p>
+            The price is a controlled loss of precision that mostly does not matter, except at the outliers and the sensitive spots, which careful schemes protect. 
+          </p>
+
+          <p class="handwritten-highlight text-red" style="text-align: center; margin-top: var(--grid-size);">
+            When moving data is what costs you,<br>
+            <span class="hl-yellow" style="font-family: inherit; font-size: inherit;"><strong class="hl-red bold">the smartest optimization is often not to compute differently,</strong></span><br>
+            but simply to make the data smaller.
+          </p>
+        </div>
 
       </div>
     </div>

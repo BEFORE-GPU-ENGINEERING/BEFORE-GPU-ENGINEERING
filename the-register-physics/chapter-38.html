@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Register Physics - Chapter 38: What is occupancy, really?</title>
+  <title>The Register Physics - Chapter 38: What is occupancy, really? It's a ratio, not a count — and 100% is not the goal.</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,400;0,700;1,400&family=Patrick+Hand&family=Space+Mono&display=swap" rel="stylesheet">
@@ -15,8 +15,8 @@
   <div class="notebook-wrapper">
 
     <!-- Sidebar Navigation -->
-    <a href="chapter-37.html" class="nav-sidebar nav-prev">← Chapter 37: Where should data live?</a>
-    <a href="chapter-39.html" class="nav-sidebar nav-next">Chapter 39: Why higher occupancy can hurt →</a>
+    <a href="chapter-37.html" class="nav-sidebar nav-prev">← Chapter 37: Where should data live? The register-occupancy tradeoff.</a>
+    <a href="chapter-39.html" class="nav-sidebar nav-next">Chapter 39: Why higher occupancy can make performance worse. →</a>
 
     <!-- Notebook Header -->
     <div class="notebook-header">
@@ -41,11 +41,104 @@
       <div class="notebook-grid-content">
 
         <!-- Title -->
-        <h1><span class="hl-yellow">What is occupancy, really?</span></h1>
+        <h1><span class="hl-yellow" style="font-size: 0.9em;">What is occupancy, really? It's a ratio, not a count — and 100% is not the goal.</span></h1>
+        <span class="annotation">*the committee of specialists*</span>
         
+        <!-- Section: Introduction -->
         <p style="margin-top: calc(var(--grid-size) * 1.5);">
-          <!-- Content goes here -->
+          There is a frustrating ceiling in building bigger language models. A model gets smarter as you add more parameters, but every parameter you add makes it slower and costlier to run, because normally every single word you process has to pass through every single parameter. So intelligence and cost rise together, locked in step. 
         </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> <strong class="hl-red">Mixture of Experts</strong> is the architecture that breaks that lock. 
+        </p>
+        
+        <p>
+          It lets you build a model with an enormous number of parameters, far more than usual, while each word only pays the cost of a small fraction of them. It is how you get a huge, knowledgeable model that still runs at the speed of a much smaller one. Understanding the trick, and the sharp tradeoff it hides, is key to how the largest models today are actually built.
+        </p>
+
+        <!-- Section: Dense vs Specialist -->
+        <h2><span class="hl-yellow">The Wall of Dense Models</span></h2>
+        
+        <p>
+          Start with the problem in the normal design, called a dense model. In a dense model, every word you feed in is processed by the entire network, touching every parameter along the way. So if you want the model to know more, you add more parameters, and now every word has to grind through all of them. 
+        </p>
+        <p>
+          A model twice as large is roughly twice as slow and twice as expensive to run, for every word, always. The full weight of all that knowledge is applied to every token whether it needs it or not. That is the wall: total knowledge and per-word cost are chained together.
+        </p>
+
+        <h2><span class="hl-pink">Breaking the Chain: Specialists</span></h2>
+
+        <p>
+          Now the insight that breaks the chain. Does every word really need the entire model? When the model is processing a word about, say, cooking, does it truly need the parameters that specialize in legal language, or poetry, or Python code, all firing at once? Probably not. Most of the model's vast knowledge is irrelevant to any particular word. 
+        </p>
+        <p>
+          So what if, instead of one giant network that every word must traverse, you had many smaller specialist networks, and each word only visited the few specialists relevant to it?
+        </p>
+
+        <p>
+          That is exactly what mixture of experts does. You replace one big dense block with a large collection of smaller blocks called <strong class="hl-pink">experts</strong>, and you add a tiny traffic controller called a <strong class="hl-blue">router</strong>. When a word arrives, the router quickly looks at it and picks just a small number of experts, often only a couple, to handle that word. 
+        </p>
+        <p>
+          The word passes through only those chosen experts, and the vast majority of the experts sit idle for that word, costing nothing. So you might have a model with dozens of experts holding a huge total number of parameters, but each word only activates a small slice of them. The total knowledge in the model is enormous, but the work done per word stays small, because most of the model is skipped for any given word.
+        </p>
+
+        <!-- Section: Why it Works -->
+        <h2><span class="hl-green">The Hospital Analogy</span></h2>
+        
+        <p>
+          And this genuinely works, which raises the question of why. The answer is specialization. During training, the experts naturally divide up the labor without being told to: one drifting toward one kind of pattern, another toward a different kind, the router learning to send each word to the experts that handle it best. 
+        </p>
+        <p>
+          It's like a hospital: you don't send every patient to every doctor, you have a receptionist who routes each person to the right specialist, and the cardiologist can sit idle while the patient sees the dermatologist. The hospital collectively knows an enormous amount, but any one patient only consumes a tiny slice of that knowledge. The model works the same way: vast collective knowledge, small per-word consumption, connected by a router that sends each token where it belongs.
+        </p>
+
+        <!-- Section: The Catch -->
+        <h2><span class="hl-red">The Catch: Memory Over Compute</span></h2>
+        
+        <p>
+          Now the catch, and this is the part people miss, because it exposes a deep truth about the hardware. It sounds like mixture of experts saves you everything, but it does not. It saves compute, not memory. 
+        </p>
+        <p>
+          Here is why. Even though each word only uses a couple of experts, you have no idea in advance which experts the next word will need—they could be any of them. So all of the experts, the entire enormous pile, <strong class="hl-red">must be sitting in the GPU's memory at all times</strong>, ready to be called. You cannot keep only the active ones loaded, because the next word might route anywhere. So a mixture of experts model demands a huge amount of memory to hold all those experts, even though it only computes with a few at a time.
+        </p>
+        <p>
+          And that lands right on the sorest spot of running these models. Remember that generating text is already bottlenecked not by compute but by memory, both how much you have and how fast you can move it. Mixture of experts attacks the compute side, which was not even the main problem, while making the memory side worse, because now you must store this giant collection of experts. 
+        </p>
+        <p>
+          So it does not make the model cheaper to fit on hardware, it makes it more demanding. What it buys you is that, for a given amount of memory you are willing to dedicate, you get far more knowledge and capability than a dense model of the same running speed. You are spending abundant memory capacity to save scarce compute and keep speed high. It's a trade, not a free win.
+        </p>
+
+        <!-- Section: Thorns -->
+        <h2><span class="hl-blue">The Load Balancing Act</span></h2>
+        
+        <p>
+          There are a couple more thorns worth knowing. The router can get lazy and send too many words to the same few popular experts, leaving others barely used, which wastes the model's capacity and creates traffic jams on the busy experts, so training has to actively push the load to spread out evenly. 
+        </p>
+        <p>
+          And when these models run across many GPUs, with different experts living on different GPUs, a word routed to an expert on another GPU has to send its data across the network to get there and back, so a flurry of tokens all routing to far-flung experts can flood the interconnect. So the elegant idea of "just activate the relevant experts" turns into real engineering about balancing load and managing communication.
+        </p>
+
+        <!-- Takeaway -->
+        <div style="margin-top: calc(var(--grid-size) * 2); margin-bottom: var(--grid-size); border-left: 3px solid var(--ink-red); padding-left: 20px;">
+          <h2 class="text-red" style="font-family: 'Patrick Hand', cursive; font-size: 32px; margin-bottom: var(--grid-size);">
+            ↳ The General Takeaway
+          </h2>
+
+          <p>
+            So the whole picture. A dense model chains knowledge to cost: every word paying for every parameter, so growing the model slows it down proportionally. Mixture of experts breaks that by splitting the model into many specialist experts and routing each word to just a few, so the model can hold a vast amount of knowledge while each word only pays for a small slice. 
+          </p>
+          
+          <p>
+            It works because knowledge naturally specializes and most of it is irrelevant to any given word. But the catch reveals what is truly scarce: it saves compute while demanding even more memory, because every expert must stay loaded even though few are used at once. 
+          </p>
+
+          <p class="handwritten-highlight text-red" style="text-align: center; margin-top: var(--grid-size);">
+            And that is the recurring lesson of this whole hardware:<br>
+            <span class="hl-yellow" style="font-family: inherit; font-size: inherit;"><strong class="hl-red bold">Compute is the easy thing to save.</strong></span><br>
+            Memory, its capacity and its bandwidth, is the wall everything eventually runs into.
+          </p>
+        </div>
 
       </div>
     </div>
