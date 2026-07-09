@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Register Spilling - Chapter 42: When spilling is acceptable</title>
+  <title>Register Spilling - Chapter 42: When spilling is acceptable: and when it destroys performance.</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,400;0,700;1,400&family=Patrick+Hand&family=Space+Mono&display=swap" rel="stylesheet">
@@ -15,8 +15,8 @@
   <div class="notebook-wrapper">
 
     <!-- Sidebar Navigation -->
-    <a href="chapter-41.html" class="nav-sidebar nav-prev">← Chapter 41: Why "local" memory isn't local</a>
-    <a href="../global-memory-and-coalescing/chapter-43.html" class="nav-sidebar nav-next">Chapter 43: Why global memory latency is huge →</a>
+    <a href="chapter-41.html" class="nav-sidebar nav-prev">← Chapter 41: Splitting the giant</a>
+    <a href="../global-memory/chapter-43.html" class="nav-sidebar nav-next">Chapter 43: Why global memory latency is huge →</a>
 
     <!-- Notebook Header -->
     <div class="notebook-header">
@@ -33,7 +33,7 @@
     <div class="notebook-box">
 
       <div class="notebook-title-row">
-        <span><span class="title-prefix">REGISTER SPILLING — </span>Chapter 42</span>
+        <span><span class="title-prefix">REGISTER SPILLING : </span>Chapter 42</span>
         <a href="../toc.html" class="index-link">index</a>
         <a href="../index.html" class="index-link" style="margin-left: 12px;">home</a>
       </div>
@@ -41,11 +41,102 @@
       <div class="notebook-grid-content">
 
         <!-- Title -->
-        <h1><span class="hl-yellow">When spilling is acceptable</span></h1>
+        <h1><span class="hl-yellow" style="font-size: 0.9em;">When spilling is acceptable: and when it destroys performance.</span></h1>
+        <span class="annotation">*the thirty-two windows*</span>
         
+        <!-- Section: Introduction -->
         <p style="margin-top: calc(var(--grid-size) * 1.5);">
-          <!-- Content goes here -->
+          The fast on-chip memory that GPU threads share is often called a scratchpad, and it is praised for being roughly a hundred times quicker than main memory. 
         </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> But that speed comes with a hidden rule, and if you break it, that same fast memory quietly slows down by up to thirty-two times, turning your carefully optimized code into a crawl. 
+        </p>
+        
+        <p>
+          The culprit is something called a <strong class="hl-red">bank conflict</strong>, and it is one of the most common invisible performance killers in GPU code. Understanding it means understanding that fast memory is only fast if all your threads access it in the right shape.
+        </p>
+
+        <!-- Section: How it works -->
+        <h2><span class="hl-yellow">Thirty-Two Separate Doors</span></h2>
+        
+        <p>
+          Start with why this fast memory is fast in the first place. The reason it can serve a whole bundle of 32 threads almost instantly is that it is not one single door that everyone queues at. It is physically built as 32 separate doors, or windows, side by side, each able to hand out data independently at the same moment. 
+        </p>
+        <p>
+          So when the 32 threads of a bundle each want a value, the ideal case is that all 32 windows open at once, each serving one thread, and the entire bundle gets its data in a single tick. Thirty-two requests satisfied in parallel through thirty-two independent windows. <span class="hl-yellow">That parallelism across the windows is the entire source of the speed.</span>
+        </p>
+
+        <!-- Section: The Serialization Trap -->
+        <h2><span class="hl-pink">The Serialization Trap</span></h2>
+
+        <p>
+          Now the catch, which follows directly from that design. The memory is spread across those 32 windows in a repeating pattern, consecutive slots of memory assigned to consecutive windows, wrapping around. So slot zero belongs to window zero, slot one to window one, and so on, and after slot thirty-one it wraps back so slot thirty-two belongs to window zero again. Each window is responsible for its own set of slots. 
+        </p>
+        <p>
+          And here is the rule: <strong class="hl-pink">a single window can only serve one thread at a time.</strong> If two threads in the bundle happen to want slots that live behind the same window, that window cannot open twice at once. It has to serve the first thread, then the second, one after the other. Those two threads are now serialized, waiting in line at the same window while the other windows sit idle.
+        </p>
+        <p>
+          So picture the disaster case. Suppose every one of the 32 threads wants a slot that happens to map to the very same window. Now instead of 32 windows opening in parallel, you have one window serving 32 threads in a slow single-file line, one after another, while the other 31 windows do nothing. The access that should have taken a single tick now takes thirty-two ticks. You got the worst possible slowdown, and you were using the fast memory the whole time. It wasn't slow because of the memory, it was slow because your threads all crowded the same window. This is a bank conflict, two or more threads in a bundle colliding on the same window, forcing serialization.
+        </p>
+
+        <!-- Section: What causes it -->
+        <h2><span class="hl-blue">What Causes the Crowd?</span></h2>
+
+        <p class="handwritten-highlight text-blue" style="margin-top: var(--grid-size); margin-bottom: var(--grid-size);">
+          So what actually causes threads to crowd one window?
+        </p>
+
+        <p>
+          It comes down to the spacing between the slots your threads access, the stride. If the 32 threads read 32 consecutive slots, each lands on a different window, perfect parallelism, no conflict. But suppose each thread reads a slot spaced out by a stride that happens to line up with the number of windows. Then thread after thread lands on the same window, because the wrapping pattern brings them all back to the same place. 
+        </p>
+        <p>
+          A very common way this happens is walking down a column of a two-dimensional grid whose width matches the window count, where every element in that column sits behind the same window. So a completely natural access pattern, reading down a column, can accidentally funnel the whole bundle into one window and trigger the maximum slowdown, without you ever seeing anything obviously wrong in the code.
+        </p>
+
+        <!-- Section: The Exception -->
+        <h2><span class="hl-green">The Exception: Identical Values</span></h2>
+        
+        <p class="handwritten-highlight text-green" style="margin-top: var(--grid-size); margin-bottom: var(--grid-size);">
+          Now a fair objection, because it seems like sharing a window should always be the problem. What if all 32 threads want the exact same slot, not just the same window but the identical value? Isn't that the worst conflict of all, 32 threads on one window?
+        </p>
+
+        <p>
+          Surprisingly, no, and this is a neat exception. When all the threads want the very same value, the hardware doesn't make them line up. It simply reads that one value once and <strong class="hl-green">broadcasts it to all of them simultaneously</strong>, in a single tick. 
+        </p>
+        <p>
+          The conflict only happens when threads want different slots that unfortunately share a window. Wanting the identical slot is free, served to everyone at once. So it is not sharing a window that hurts, it's specifically different addresses colliding on the same window. Same address, broadcast, fast. Different addresses, same window, serialized, slow.
+        </p>
+        
+        <!-- Section: The Fix -->
+        <h2><span class="hl-yellow">The Fix: Memory Padding</span></h2>
+
+        <p>
+          So how do you fix a conflict once you find one? The classic trick is delightfully simple: you pad the memory. If reading down a column is funneling everyone onto one window because the grid's width lines up badly with the window count, you just make each row of the grid one slot wider than it needs to be. 
+        </p>
+        <p>
+          That little extra padding shifts where each row starts, so that the elements of a column now land on different windows instead of the same one. You waste a tiny bit of memory on padding you never use, and in exchange the whole bundle spreads across all the windows and reads in a single tick again. It's one of the highest-value-for-effort fixes in GPU programming, a sliver of wasted space buying back a thirty-two-fold slowdown.
+        </p>
+
+        <!-- Takeaway -->
+        <div style="margin-top: calc(var(--grid-size) * 2); margin-bottom: var(--grid-size); border-left: 3px solid var(--ink-red); padding-left: 20px;">
+          <h2 class="text-red" style="font-family: 'Patrick Hand', cursive; font-size: 32px; margin-bottom: var(--grid-size);">
+            ↳ The General Takeaway
+          </h2>
+
+          <p>
+            So the whole picture. The shared scratchpad is fast because it is built as many independent windows that can all serve threads at once, but each window can only serve one thread at a time. When threads in a bundle want different slots that map to the same window, they collide and get serialized, and in the worst case a full bundle crowding one window runs thirty-two times slower, all while appearing to use the fast memory. 
+          </p>
+          
+          <p>
+            The collisions come from the stride of your access lining up badly with the number of windows, classically when marching down a column. The one exception is that all threads wanting the identical value is free, because the hardware broadcasts it. And the standard cure is to pad your data so accesses spread back across all the windows. 
+          </p>
+
+          <p class="handwritten-highlight text-red" style="text-align: center; margin-top: var(--grid-size);">
+            The deeper lesson is a familiar one on this hardware: fast is never automatic.<br>
+            <span class="hl-yellow" style="font-family: inherit; font-size: inherit;"><strong class="hl-red bold">Even the fastest memory on the chip is only fast if you approach it in the shape it was built for.</strong></span>
+          </p>
+        </div>
 
       </div>
     </div>

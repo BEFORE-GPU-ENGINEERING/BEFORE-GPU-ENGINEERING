@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Register Spilling - Chapter 41: Why "local" memory isn't local</title>
+  <title>Register Spilling - Chapter 41: Splitting the giant</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,400;0,700;1,400&family=Patrick+Hand&family=Space+Mono&display=swap" rel="stylesheet">
@@ -15,8 +15,8 @@
   <div class="notebook-wrapper">
 
     <!-- Sidebar Navigation -->
-    <a href="chapter-40.html" class="nav-sidebar nav-prev">← Chapter 40: The cliff: fast to catastrophic</a>
-    <a href="chapter-42.html" class="nav-sidebar nav-next">Chapter 42: When spilling is acceptable →</a>
+    <a href="chapter-40.html" class="nav-sidebar nav-prev">← Chapter 40: What is register spilling? The cliff between 1 ms and 50 ms.</a>
+    <a href="chapter-42.html" class="nav-sidebar nav-next">Chapter 42: When spilling is acceptable: and when it destroys performance. →</a>
 
     <!-- Notebook Header -->
     <div class="notebook-header">
@@ -33,7 +33,7 @@
     <div class="notebook-box">
 
       <div class="notebook-title-row">
-        <span><span class="title-prefix">REGISTER SPILLING — </span>Chapter 41</span>
+        <span><span class="title-prefix">REGISTER SPILLING : </span>Chapter 41</span>
         <a href="../toc.html" class="index-link">index</a>
         <a href="../index.html" class="index-link" style="margin-left: 12px;">home</a>
       </div>
@@ -41,11 +41,107 @@
       <div class="notebook-grid-content">
 
         <!-- Title -->
-        <h1><span class="hl-yellow">Why "local" memory isn't local</span></h1>
+        <h1><span class="hl-yellow" style="font-size: 0.9em;">Splitting the giant</span></h1>
+        <span class="annotation">*Why "local" memory is not local at all*</span>
         
+        <!-- Section: Introduction -->
         <p style="margin-top: calc(var(--grid-size) * 1.5);">
-          <!-- Content goes here -->
+          Modern models have grown so large that they no longer fit on a single GPU. Not the model's parameters, not the memory it needs to run, none of it. So you are forced to spread one model across many GPUs working together. 
         </p>
+
+        <p class="text-blue">
+          <span class="arrow">↳</span> And this sounds simple, just cut it into pieces, but it opens up the hardest problem in large-scale AI. Because the moment a model lives on many chips, those chips have to constantly talk to each other, and that talking becomes the new bottleneck. 
+        </p>
+        
+        <p>
+          There are three fundamentally different ways to split a model across GPUs, each with its own pattern of communication and its own way of hurting. Understanding them is understanding how models the size of the ones you use every day are actually run.
+        </p>
+
+        <!-- Section: The Motivation -->
+        <h2><span class="hl-yellow">The Unavoidable Need to Talk</span></h2>
+        
+        <p>
+          Start with the reason you are forced into this at all. A GPU has a fixed, limited amount of memory. A large model's parameters alone can be far more than that, and running it needs even more memory on top. So the model physically cannot sit on one chip. 
+        </p>
+        <p>
+          You have no choice but to divide it across several, and the only question is how you cut it. And every way of cutting creates a need for the GPUs to exchange data, because a model is one connected computation, and if you split that computation across chips, the pieces have to pass results between them. <span class="hl-yellow">The entire art is choosing cuts that minimize how much the chips must talk.</span>
+        </p>
+
+        <!-- Section: Data Parallelism -->
+        <h2><span class="hl-pink">1. Data Parallelism</span></h2>
+
+        <p>
+          The first way is the simplest, called data parallelism, and it applies when the model does fit on one GPU but you want to train it faster on more data. You put a complete copy of the model on each GPU, and feed each copy a different slice of the data. 
+        </p>
+        <p>
+          Each GPU computes independently on its own slice, which is wonderfully parallel with no talking during the work. But there is a catch at the end. Since they are all training one shared model, after each step they must combine what they each learned, averaging their updates together so all the copies stay identical. That averaging step requires every GPU to share its results with all the others, a burst of heavy communication. So data parallelism is nearly free during the computation and then pays a large communication bill at the synchronization point. And it does not solve the core problem, because it requires the whole model to fit on each GPU in the first place.
+        </p>
+
+        <!-- Section: Tensor Parallelism -->
+        <h2><span class="hl-green">2. Tensor Parallelism</span></h2>
+
+        <p class="handwritten-highlight text-red" style="margin-top: var(--grid-size); margin-bottom: var(--grid-size);">
+          So what happens when the model itself is too big to fit on one chip? Now you have to split the model, not just the data.
+        </p>
+
+        <p>
+          The second way, tensor parallelism, slices individual layers of the model across GPUs. Take one big mathematical operation in the model and cut it lengthwise, so each GPU holds a fraction of that layer and does a fraction of the work. 
+        </p>
+        <p>
+          The problem is immediate and severe. Because you split a single operation across chips, the chips must combine their partial results to complete that one operation, and this happens deep inside the model, for every layer, on every single token. So tensor parallelism generates constant, intense communication, chips exchanging data many times per token as the computation flows through the split layers. This only works when the GPUs are connected by an extremely fast, short link, because the talking is so frequent that any delay would dominate everything. You keep tensor parallelism inside a tightly connected group of chips sitting right next to each other, never spread across a slow network.
+        </p>
+
+        <!-- Section: Pipeline Parallelism -->
+        <h2><span class="hl-blue">3. Pipeline Parallelism</span></h2>
+        
+        <p>
+          The third way, pipeline parallelism, cuts the model the other direction. Instead of splitting each layer, you put different whole layers on different GPUs: the early layers on the first chip, the middle layers on the next, the late layers on another, like stations on an assembly line. 
+        </p>
+        <p>
+          Data flows through, chip one does its layers then passes the result to chip two, which does its layers and passes to chip three. The communication here is light, just handing off a result once between neighboring stages, not the constant chatter of tensor parallelism. 
+        </p>
+        <p>
+          But it has its own ugly problem. When the first chip is working on the first stage, all the other chips are sitting idle waiting for work to reach them, and when the work has moved down the line, the early chips are now idle. This idle time is called the bubble, and it is pure waste, GPUs doing nothing while they wait their turn in the line.
+        </p>
+
+        <p class="handwritten-highlight text-blue" style="margin-top: var(--grid-size); margin-bottom: var(--grid-size);">
+          So here is the question that reveals the real engineering: If pipeline parallelism leaves chips idle waiting their turn, how do you keep them all busy?
+        </p>
+        
+        <p>
+          The answer is to not send one piece of work down the line at a time, but to keep a steady stream of them flowing. You break your batch into many small pieces and feed them into the pipeline one after another, so that while chip two is working on the first piece, chip one is already working on the second piece, and soon every chip is busy on a different piece at once, just like a real factory line running full. You cannot eliminate the bubble at the very start and end when the line is filling and draining, but you can shrink it to a small fraction by keeping the pipeline packed with work.
+        </p>
+
+        <!-- Section: Combining them -->
+        <h2><span class="hl-yellow">Braiding them together</span></h2>
+
+        <p>
+          Now the truth about how the biggest models actually run, which is that you don't choose one of these, you combine all three at once. 
+        </p>
+        <p>
+          You use tensor parallelism inside a small group of tightly linked chips to split each layer, because they can talk fast enough to afford the constant chatter. You use pipeline parallelism to spread the model's layers across several such groups, handing off between them with light communication. And you wrap the whole thing in data parallelism, running many complete copies of this multi-GPU model on different data slices to train faster. So a single enormous training run might spread across thousands of GPUs, organized in this layered way, each type of split chosen to match how fast the underlying connections are.
+        </p>
+
+        <!-- Takeaway -->
+        <div style="margin-top: calc(var(--grid-size) * 2); margin-bottom: var(--grid-size); border-left: 3px solid var(--ink-red); padding-left: 20px;">
+          <h2 class="text-red" style="font-family: 'Patrick Hand', cursive; font-size: 32px; margin-bottom: var(--grid-size);">
+            ↳ The General Takeaway
+          </h2>
+
+          <p>
+            So the whole picture. Models outgrew single GPUs, forcing you to split them across many, and every split creates communication because one connected computation now spans separate chips. 
+          </p>
+          
+          <p>
+            Data parallelism copies the whole model and only talks at the end to sync. Tensor parallelism splits each layer and talks constantly, so it demands the fastest links and stays local. Pipeline parallelism splits by layers into an assembly line with light handoffs but risks idle bubbles, which you hide by streaming many small pieces through.
+          </p>
+
+          <p class="handwritten-highlight text-red" style="text-align: center; margin-top: var(--grid-size);">
+            Once your work outgrows a single machine,<br>
+            <span class="hl-yellow" style="font-family: inherit; font-size: inherit;"><strong class="hl-red bold">your real enemy is no longer computation, it is the cost of making the machines talk.</strong></span><br>
+            Every good design is really a scheme for making them talk as little as possible.
+          </p>
+        </div>
 
       </div>
     </div>
