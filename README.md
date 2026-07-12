@@ -3,7 +3,7 @@
   <p><em>A first-principles climb from the absolute bottom of hardware to the top of GPU architecture.</em></p>
   <br>
   <strong><span style="color: #ff0000; font-size: 1.2em; text-decoration: underline;">
-    <a href="https://BEFORE-GPU-ENGINEERING.github.io/BEFORE-GPU-ENGINEERING/" style="color: #ff0000;">READ THE LIVE DIGITAL NOTEBOOK HERE</a>
+    <a href="https://before-gpu-engineering.github.io/BEFORE-GPU-ENGINEERING/toc.html" style="color: #ff0000;">READ THE LIVE DIGITAL NOTEBOOK HERE</a>
   </span></strong>
 </div>
 
