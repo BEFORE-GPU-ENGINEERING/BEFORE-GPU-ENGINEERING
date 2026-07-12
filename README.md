@@ -5,13 +5,13 @@ A first-principles climb from the absolute bottom of hardware to the top of GPU 
 This repository documents my journey learning GPU engineering, built in public, note by note, from the ground up. No hand-waving or abstract jargon; just logic gates, memory buses, and first principles.
 
 I also coded a custom digital notebook to host the series. You can read it live here:
-https://BEFORE-GPU-ENGINEERING.github.io/BEFORE-GPU-ENGINEERING/
+**<span style="color: #ff0000; font-weight: bold; text-decoration: underline;">[Read the Live Digital Notebook](https://BEFORE-GPU-ENGINEERING.github.io/BEFORE-GPU-ENGINEERING/)</span>**
 
 ### Who is this for?
 This series is for **developers, students, and self-learners** who want to understand *how* and *why* GPUs are so fast for AI and heavy compute, without getting immediately bogged down in complex CUDA syntax or graphics APIs. If you understand basic programming but GPUs feel like black magic, this is for you.
 
 ### How to use this resource?
-Treat this as a structured book or course. **Start from Chapter 1 and read sequentially.** The concepts build heavily on each other—you can't understand matrix tiling without understanding shared memory, and you can't understand shared memory without understanding the memory wall. 
+Treat this as a structured book or course. **<span style="color: #ff0000; font-weight: bold; text-decoration: underline;">Start from Chapter 1 and read sequentially.</span>** The concepts build heavily on each other. You cannot understand matrix tiling without understanding shared memory, and you cannot understand shared memory without understanding the memory wall. 
 
 For the best reading experience, use the [live digital notebook](https://BEFORE-GPU-ENGINEERING.github.io/BEFORE-GPU-ENGINEERING/).
 
@@ -107,7 +107,7 @@ By the end of this series, you will no longer see the GPU as a black box. You wi
 - [Chapter 31: Why matrix add
                   scales but a linked list dies](https://BEFORE-GPU-ENGINEERING.github.io/BEFORE-GPU-ENGINEERING/scale-and-performance/chapter-31.html)
 - [Chapter 32: When NOT to use a
-                  GPU — and the reduction tree](https://BEFORE-GPU-ENGINEERING.github.io/BEFORE-GPU-ENGINEERING/scale-and-performance/chapter-32.html)
+                  GPU, and the reduction tree](https://BEFORE-GPU-ENGINEERING.github.io/BEFORE-GPU-ENGINEERING/scale-and-performance/chapter-32.html)
 ### Phase 3
 
 #### The Memory Wall
@@ -119,7 +119,7 @@ By the end of this series, you will no longer see the GPU as a black box. You wi
 
 - [Chapter 36: Why not build a GPU entirely from registers?](https://BEFORE-GPU-ENGINEERING.github.io/BEFORE-GPU-ENGINEERING/the-register-physics/chapter-36.html)
 - [Chapter 37: Where should data live? The register-occupancy tradeoff.](https://BEFORE-GPU-ENGINEERING.github.io/BEFORE-GPU-ENGINEERING/the-register-physics/chapter-37.html)
-- [Chapter 38: What is occupancy, really? It's a ratio, not a count — and 100% is not the goal.](https://BEFORE-GPU-ENGINEERING.github.io/BEFORE-GPU-ENGINEERING/the-register-physics/chapter-38.html)
+- [Chapter 38: What is occupancy, really? It's a ratio, not a count, and 100% is not the goal.](https://BEFORE-GPU-ENGINEERING.github.io/BEFORE-GPU-ENGINEERING/the-register-physics/chapter-38.html)
 - [Chapter 39: Why higher occupancy can make performance worse.](https://BEFORE-GPU-ENGINEERING.github.io/BEFORE-GPU-ENGINEERING/the-register-physics/chapter-39.html)
 #### Register Spilling
 
@@ -154,7 +154,7 @@ By the end of this series, you will no longer see the GPU as a black box. You wi
 
 ## How to Contribute
 
-This is a living, public resource, and community contributions are highly encouraged! 
+This is a living, public resource, and **<span style="color: #ff0000; font-weight: bold; text-decoration: underline;">community contributions are highly encouraged!</span>** 
 
 You can help improve this project in several ways:
 - **Adding or Fixing Diagrams:** Many chapters are missing visual aids, or existing diagrams could be made clearer. If you can create a great visual for a concept, feel free to add it!
