@@ -132,6 +132,11 @@ Treat this as a structured book. **<span style="color: #ff0000; font-weight: bol
 
 ---
 
+---
+
+### 💬 Join the Discussion
+Learning GPU architecture is hard. Don't do it alone. **<span style="color: #eab308; font-weight: bold; text-decoration: underline;">[Join the GitHub Discussions](https://github.com/BEFORE-GPU-ENGINEERING/BEFORE-GPU-ENGINEERING/discussions)</span>** to ask questions, share your "aha!" moments, and show off your custom kernels.
+
 ## 🤝 How to Contribute
 
 This is a living, public resource, and **<span style="color: #ff0000; font-weight: bold;">community contributions are highly encouraged!</span>**
