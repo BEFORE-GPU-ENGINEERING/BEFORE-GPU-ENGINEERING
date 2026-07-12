@@ -18,12 +18,12 @@ Treat this as a structured book or course. **<span style="color: #ff0000; font-w
 
 For the best reading experience, use the [live digital notebook](https://BEFORE-GPU-ENGINEERING.github.io/BEFORE-GPU-ENGINEERING/).
 
-### What will you be able to do after reading this?
-By the end of this series, you will no longer see the GPU as a black box. You will be able to:
-- **Reason from first principles** about GPU architecture (Warps, SMs, Memory Hierarchy, Tensor Cores).
-- **Diagnose performance bottlenecks** intuitively (Compute-bound vs. Memory-bound, latency hiding).
-- **Learn CUDA or Triton much faster**, because you will finally understand the *why* behind thread blocks, memory coalescing, and synchronization.
-- **Optimize AI workloads** with a deep mechanical sympathy for how the hardware actually moves data and executes math.
+### <span style="color: #ff0000;">What will you be able to do after reading this?</span>
+<span style="color: #eab308;">By the end of this series, you will no longer see the GPU as a black box. You will be able to:</span>
+- <span style="color: #eab308;">**Reason from first principles** about GPU architecture (Warps, SMs, Memory Hierarchy, Tensor Cores).</span>
+- <span style="color: #eab308;">**Diagnose performance bottlenecks** intuitively (Compute-bound vs. Memory-bound, latency hiding).</span>
+- <span style="color: #eab308;">**Learn CUDA or Triton much faster**, because you will finally understand the *why* behind thread blocks, memory coalescing, and synchronization.</span>
+- <span style="color: #eab308;">**Optimize AI workloads** with a deep mechanical sympathy for how the hardware actually moves data and executes math.</span>
 
 ## Syllabus
 
