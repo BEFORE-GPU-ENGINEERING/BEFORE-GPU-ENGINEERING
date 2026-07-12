@@ -32,7 +32,9 @@ Treat this as a structured book. **<span style="color: #ff0000; font-weight: bol
 
 ---
 
-## Syllabus
+## 📚 Syllabus
+
+> 🚧 **Work in Progress:** This series is actively being written and continuously updated. The full syllabus will be completed by the end of this month!
 
 ### Phase 1
 
