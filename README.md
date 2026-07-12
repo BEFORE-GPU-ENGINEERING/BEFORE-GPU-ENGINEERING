@@ -5,9 +5,24 @@ A first-principles climb from the absolute bottom of hardware to the top of GPU 
 This repository documents my journey learning GPU engineering, built in public, note by note, from the ground up. No hand-waving or abstract jargon; just logic gates, memory buses, and first principles.
 
 I also coded a custom digital notebook to host the series. You can read it live here:
-👉 https://BEFORE-GPU-ENGINEERING.github.io/BEFORE-GPU-ENGINEERING/
+https://BEFORE-GPU-ENGINEERING.github.io/BEFORE-GPU-ENGINEERING/
 
-## 📚 Syllabus
+### Who is this for?
+This series is for **developers, students, and self-learners** who want to understand *how* and *why* GPUs are so fast for AI and heavy compute, without getting immediately bogged down in complex CUDA syntax or graphics APIs. If you understand basic programming but GPUs feel like black magic, this is for you.
+
+### How to use this resource?
+Treat this as a structured book or course. **Start from Chapter 1 and read sequentially.** The concepts build heavily on each other—you can't understand matrix tiling without understanding shared memory, and you can't understand shared memory without understanding the memory wall. 
+
+For the best reading experience, use the [live digital notebook](https://BEFORE-GPU-ENGINEERING.github.io/BEFORE-GPU-ENGINEERING/).
+
+### What will you be able to do after reading this?
+By the end of this series, you will no longer see the GPU as a black box. You will be able to:
+- **Reason from first principles** about GPU architecture (Warps, SMs, Memory Hierarchy, Tensor Cores).
+- **Diagnose performance bottlenecks** intuitively (Compute-bound vs. Memory-bound, latency hiding).
+- **Learn CUDA or Triton much faster**, because you will finally understand the *why* behind thread blocks, memory coalescing, and synchronization.
+- **Optimize AI workloads** with a deep mechanical sympathy for how the hardware actually moves data and executes math.
+
+## Syllabus
 
 ### Phase 1
 
@@ -137,7 +152,7 @@ I also coded a custom digital notebook to host the series. You can read it live 
 - [Chapter 56: Nsight Systems vs Compute](https://BEFORE-GPU-ENGINEERING.github.io/BEFORE-GPU-ENGINEERING/the-measurement-mandate/chapter-56.html)
 - [Chapter 57: What kernel time measures](https://BEFORE-GPU-ENGINEERING.github.io/BEFORE-GPU-ENGINEERING/the-measurement-mandate/chapter-57.html)
 
-## 🤝 How to Contribute
+## How to Contribute
 
 This is a living, public resource, and community contributions are highly encouraged! 
 
@@ -153,6 +168,6 @@ You can help improve this project in several ways:
 4. Push to the branch (`git push origin feature/improve-diagram`).
 5. Open a Pull Request!
 
-## 📜 License
+## License
 
 This project is licensed under the [MIT License](LICENSE).
