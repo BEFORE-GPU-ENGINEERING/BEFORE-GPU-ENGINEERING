@@ -1,5 +1,8 @@
 # Before GPU Engineering
 
+> **<span style="color: #ff0000;">If you are new to GPU engineering, CUDA, kernel programming, or LLM inference, you are in the right place.</span>**<br>
+> Treat this as the ultimate prerequisite. Before diving into complex textbooks or dense research papers, read this series. By the time you finish, you will have the rock-solid foundation needed to actually understand advanced literature and write fast code.
+
 A first-principles climb from the absolute bottom of hardware to the top of GPU architecture.
 
 This repository documents my journey learning GPU engineering, built in public, note by note, from the ground up. No hand-waving or abstract jargon; just logic gates, memory buses, and first principles.
