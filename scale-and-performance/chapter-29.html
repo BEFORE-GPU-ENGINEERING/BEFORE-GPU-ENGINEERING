@@ -49,6 +49,10 @@
           Here is a puzzle that breaks people's intuition. A bundle of 32 threads reads 32 numbers from memory. In one version they read 32 neighboring slots, in another they read 32 scattered slots. The total amount of data requested is identical, the same 128 bytes either way. And yet the scattered version can be <strong class="hl-red">ten times slower</strong>. Same bytes, same threads, tenfold difference. The answer to that puzzle is one of the most important performance ideas in all of GPU programming, and it comes down to <strong class="hl-yellow">how memory is physically delivered</strong>.
         </p>
 
+
+        <class="tok-keyword">img src="../diagrams/gpu-architecture-memory-atlas.svg" alt="GPU architecture and memory hierarchy atlas" style="width:100%;max-width:900px;margin:var(class="tok-comment">--grid-size) auto;display:block;">
+
+
         <p class="text-blue">
           <span class="arrow">↳</span> Think of it as a <strong class="hl-blue">delivery truck</strong>. The GPU cannot hand you a single spoonful of data; it only ships full crates. Where your data sits inside those crates is the entire story.
         </p>
